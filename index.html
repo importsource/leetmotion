@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LeetCode Animation Navigator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              lc: {
+                black: '#0f0f0f',
+                dark: '#1a1a1a',
+                gray: '#282828',
+                accent: '#FFA116',
+                text: '#ffffff',
+                muted: '#a1a1a1'
+              }
+            },
+            animation: {
+              'progress': 'progress 1s ease-in-out infinite',
+            },
+            keyframes: {
+              progress: {
+                '0%': { transform: 'translateX(-100%)' },
+                '50%': { transform: 'translateX(0%)' },
+                '100%': { transform: 'translateX(100%)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+
+    <style>
+      body {
+        background-color: #0f0f0f;
+        color: #ffffff;
+      }
+      .icon {
+        width: 1.25rem;
+        height: 1.25rem;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .hidden {
+        display: none !important;
+      }
+      /* Hide the dummy root to prevent interference if React tries to mount */
+      #root {
+        display: none;
+      }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-6 font-sans">
+
+    <!-- Safeguard element for environments that expect a React root -->
+    <div id="root"></div>
+
+    <main class="w-full max-w-xl flex flex-col items-center gap-8">
+        
+        <!-- Header -->
+        <div class="text-center space-y-2">
+            <h1 class="text-4xl font-bold tracking-tight">
+                LeetCode <span class="text-lc-accent">Animation</span>
+            </h1>
+            <p class="text-lc-muted">
+                Enter a problem number to view its animation.
+            </p>
+        </div>
+
+        <!-- Search Input Container -->
+        <div class="w-full relative">
+            <div class="relative flex items-center">
+                <!-- Icons: Search -->
+                <div class="absolute left-4 text-gray-500 pointer-events-none">
+                    <svg id="icon-search" xmlns="http://www.w3.org/2000/svg" class="icon stroke-current" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </div>
+
+                <!-- Input Field -->
+                <input
+                    id="search-input"
+                    type="text"
+                    placeholder="Enter LeetCode No (e.g. 289)"
+                    class="w-full bg-lc-gray border border-gray-700 focus:border-lc-accent rounded-lg py-4 pl-12 pr-14 text-lg text-white placeholder-gray-500 outline-none transition-colors shadow-lg"
+                    autofocus
+                />
+
+                <!-- Action Button -->
+                <div class="absolute right-2">
+                   <button 
+                    id="search-btn"
+                    class="p-2 bg-[#3a3a3a] hover:bg-[#4a4a4a] rounded-md text-white transition-colors"
+                   >
+                     <svg xmlns="http://www.w3.org/2000/svg" class="icon stroke-current" viewBox="0 0 24 24" fill="none"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                   </button>
+                </div>
+            </div>
+            
+            <!-- Status & Error Messages -->
+            <div id="message-area" class="mt-4 text-center min-h-[24px]">
+                <p id="msg-error" class="text-red-400 text-sm hidden"></p>
+                <p id="msg-status" class="text-lc-accent text-sm hidden">Redirecting...</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const BASE_URL_TEMPLATE = "https://importsource.github.io/leetcode-animation/";
+
+        // DOM Elements
+        const searchInput = document.getElementById('search-input');
+        const searchBtn = document.getElementById('search-btn');
+        const msgError = document.getElementById('msg-error');
+        const msgStatus = document.getElementById('msg-status');
+
+        function showError(message) {
+            msgStatus.classList.add('hidden');
+            msgError.textContent = message;
+            msgError.classList.remove('hidden');
+        }
+
+        function performRedirect() {
+            const query = searchInput.value.trim();
+            
+            if (!query) {
+                showError("Please enter a problem number.");
+                return;
+            }
+
+            // Clear errors
+            msgError.classList.add('hidden');
+            msgStatus.classList.remove('hidden');
+            msgStatus.textContent = `Redirecting to problem ${query}...`;
+            searchInput.disabled = true;
+            searchBtn.disabled = true;
+
+            const targetUrl = `${BASE_URL_TEMPLATE}${query}`;
+            
+            // Slight delay for UX so user sees the status
+            setTimeout(() => {
+                window.location.href = targetUrl;
+            }, 300);
+        }
+
+        // Event Listeners
+        searchBtn.addEventListener('click', performRedirect);
+        
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                performRedirect();
+            }
+        });
+
+        searchInput.addEventListener('input', () => {
+            if (!msgError.classList.contains('hidden')) {
+                msgError.classList.add('hidden');
+            }
+        });
+
+        console.log("Simple LeetCode Navigator initialized");
+    </script>
+</body>
+</html>

@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game of Life Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              gray: {
+                750: '#2d3748',
+                850: '#1a202c',
+                950: '#0d1117',
+              }
+            },
+            fontFamily: {
+              mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", 'monospace'],
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      /* Custom scrollbar for code block */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #1f2937;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #4b5563;
+        border-radius: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #6b7280;
+      }
+    </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+      }
+    }
+    </script>
+</head>
+<body class="bg-gray-950 text-white overflow-y-auto">
+    <div id="app" class="min-h-screen flex flex-col p-4 md:p-8 font-sans">
+        <!-- Header -->
+        <header class="mb-6 flex justify-between items-end border-b border-gray-800 pb-4">
+            <div>
+                <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
+                    LeetCode 289: Game of Life
+                </h1>
+                <p class="text-gray-400 text-sm mt-1">
+                    In-place Algorithm Visualization (O(1) Space)
+                </p>
+            </div>
+            <div class="text-right hidden sm:block">
+                <div class="flex items-center gap-4 text-sm">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 bg-emerald-500 rounded-sm"></span> Live (1)
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 bg-gray-800 border border-gray-700 rounded-sm"></span> Dead (0)
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 bg-rose-500 rounded-sm"></span> Dying (2)
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 bg-blue-500 rounded-sm"></span> Spawning (3)
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Col: Board & Status -->
+            <div class="lg:col-span-5 flex flex-col gap-4">
+                <!-- Board Container -->
+                <div id="board-container" class="overflow-auto p-4 flex justify-center items-center bg-gray-900 rounded-xl shadow-inner border border-gray-800">
+                    <!-- SVG will be injected here -->
+                </div>
+                
+                <!-- Status Card -->
+                <div class="bg-gray-900/50 border border-gray-800 p-4 rounded-xl">
+                    <h3 class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">Current Operation</h3>
+                    <p id="status-text" class="text-lg leading-snug text-gray-200 font-medium">
+                        Click 'Run Code' or 'Step' to start the algorithm visualization.
+                    </p>
+                    
+                    <!-- AI Explanation Box -->
+                    <div id="ai-explanation-container" class="hidden mt-4 bg-purple-900/20 border border-purple-500/20 p-3 rounded-lg animate-in fade-in slide-in-from-top-2">
+                        <div class="flex items-center gap-2 mb-1 text-purple-300 text-xs font-bold uppercase">
+                            <span>✨ Gemini Explanation</span>
+                        </div>
+                        <p id="ai-explanation-text" class="text-sm text-purple-100 leading-relaxed">
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Col: Code & Controls -->
+            <div class="lg:col-span-7 flex flex-col gap-4">
+                <div class="h-[320px] min-h-0 flex flex-col bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+                    <div class="bg-gray-800 px-4 py-2 border-b border-gray-700 flex justify-between items-center">
+                        <span class="text-sm font-mono text-gray-300">Solution.java</span>
+                        <div class="flex space-x-1.5">
+                            <div class="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/50"></div>
+                        </div>
+                    </div>
+                    <div id="code-container" class="flex-1 overflow-y-auto p-4 font-mono text-sm leading-6 custom-scrollbar"></div>
+                </div>
+                
+                <!-- Control Panel -->
+                <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col gap-4 shadow-lg">
+                    <div class="flex flex-wrap items-center gap-2 justify-between">
+                        <div class="flex gap-2 flex-wrap">
+                            <!-- Play Button: ID is crucial for JS -->
+                            <button id="btn-play" class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all min-w-[140px] justify-center bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-900/20">
+                                <i data-lucide="play" width="18"></i>
+                                <div class="flex flex-col items-start leading-none">
+                                    <span class="text-sm font-bold">Run Code</span>
+                                    <span class="text-[10px] opacity-80">运行代码</span>
+                                </div>
+                            </button>
+                            
+                            <button id="btn-step" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors min-w-[100px] justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i data-lucide="skip-forward" width="18"></i>
+                                <div class="flex flex-col items-start leading-none">
+                                    <span class="text-sm font-bold">Step</span>
+                                    <span class="text-[10px] opacity-80">单步调试</span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button id="btn-reset" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors flex flex-col items-center" title="Reset Current Grid">
+                                <i data-lucide="rotate-ccw" width="16"></i>
+                                <span class="text-[10px] mt-1">Reset 重置</span>
+                            </button>
+                            <button id="btn-clear" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors flex flex-col items-center" title="Clear Grid">
+                                <i data-lucide="refresh-cw" width="16"></i>
+                                <span class="text-[10px] mt-1">Clear 清空</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Speed Slider -->
+                    <div class="flex items-center gap-4 bg-gray-900/50 p-2 rounded-lg">
+                        <span class="text-xs text-gray-400 font-mono uppercase w-16">Speed 速度</span>
+                        <div class="flex items-center gap-2 flex-1">
+                            <span class="text-[10px] text-gray-500 font-medium">Slow</span>
+                            <input id="input-speed" type="range" min="50" max="2000" step="50" value="1000" class="flex-1 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500" style="direction: rtl" />
+                            <span class="text-[10px] text-gray-500 font-medium">Fast</span>
+                        </div>
+                    </div>
+
+                    <!-- AI Helper -->
+                    <button id="btn-explain" class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-purple-600/20 hover:bg-purple-600/30 text-purple-200 border border-purple-500/30 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i id="icon-explain" data-lucide="info" width="18"></i>
+                        <span id="text-explain">Explain Step (AI 解释当前步骤)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { GoogleGenAI } from "@google/genai";
+
+        // --- Constants & Types ---
+        const CellState = {
+            DEAD: 0,
+            LIVE: 1,
+            DYING: 2, // Was LIVE, will become DEAD
+            SPAWNING: 3 // Was DEAD, will become LIVE
+        };
+
+        const JAVA_CODE = `int m=board.length;
+int n=board[0].length;
+int[][] near = {{-1,-1},{-1,0},{-1,1},{0,-1},{0,1},{1,-1},{1,0},{1,1}};
+
+//循环
+for(int i=0;i<m;i++){
+    for(int j=0;j<n;j++){
+
+        int totalCellSurrounding=0;
+        //累加周边的总和
+        for(int x=0;x<near.length;x++){
+            int a=near[x][0];
+            int b=near[x][1];
+
+            int newi=a+i;
+            int newj=b+j;
+            if(newi>=0 && newj>=0 && newi<m && newj<n){
+                if(board[newi][newj]==1 || board[newi][newj]==2){
+                    totalCellSurrounding++;
+                }
+            }
+        }
+        
+        //重写数字到数组
+        if(board[i][j]==1){
+            if(totalCellSurrounding<2 || totalCellSurrounding>3){
+                board[i][j]=2;
+            }
+
+        }else{
+            if(totalCellSurrounding==3 ){
+                board[i][j]=3;
+            }
+        }
+    }
+}
+
+for(int i=0;i<m;i++){
+    for(int j=0;j<n;j++){
+        if(board[i][j]==2){
+            board[i][j]=0;
+        }
+        
+        if(board[i][j]==3){
+            board[i][j]=1;
+        }
+    }
+}`;
+
+        const DIRECTIONS = [
+            [-1, -1], [-1, 0], [-1, 1],
+            [0, -1],           [0, 1],
+            [1, -1],  [1, 0],  [1, 1]
+        ];
+
+        const LINE_MAPPING = {
+            INIT: 0,
+            LOOP_1_OUTER: 5,
+            LOOP_1_INNER: 6,
+            NEIGHBOR_LOOP: 10,
+            CHECK_NEIGHBOR_CONDITION: 17,
+            INCREMENT_COUNT: 18,
+            CHECK_LIVE: 24,
+            CHECK_UNDER_OVER: 25,
+            MARK_DYING: 26,
+            CHECK_DEAD: 29,
+            CHECK_SPAWN: 30,
+            MARK_SPAWNING: 31,
+            LOOP_2_START: 37,
+            FINALIZE_CHECK_2: 39,
+            FINALIZE_2: 40,
+            FINALIZE_CHECK_3: 43,
+            FINALIZE_3: 44,
+        };
+
+        const INITIAL_ROWS = 8;
+        const INITIAL_COLS = 8;
+        const CELL_SIZE = 40;
+        const GAP = 2;
+
+        // --- Algorithm Engine ---
+        const cloneGrid = (grid) => grid.map(row => [...row]);
+
+        class AlgorithmEngine {
+            constructor(initialCells) {
+                this.grid = cloneGrid(initialCells);
+                this.rows = initialCells.length;
+                this.cols = initialCells[0].length;
+                this.i = 0;
+                this.j = 0;
+                this.phase = 'LOOP_1';
+                this.done = false;
+            }
+
+            isDone() {
+                return this.done;
+            }
+
+            next() {
+                if (this.done) {
+                    return {
+                        grid: this.grid,
+                        activeCell: null,
+                        highlightedNeighbors: [],
+                        neighborCount: null,
+                        activeLineIndex: -1,
+                        description: "Simulation Complete.",
+                        phase: 'DONE'
+                    };
+                }
+
+                if (this.phase === 'LOOP_1') {
+                    return this.processPassOne();
+                } else {
+                    return this.processPassTwo();
+                }
+            }
+
+            processPassOne() {
+                const r = this.i;
+                const c = this.j;
+                
+                let totalCellSurrounding = 0;
+                let dyingNeighbors = 0;
+                const neighborCoords = [];
+
+                for (const [dr, dc] of DIRECTIONS) {
+                    const nr = r + dr;
+                    const nc = c + dc;
+                    if (nr >= 0 && nr < this.rows && nc >= 0 && nc < this.cols) {
+                        neighborCoords.push({ r: nr, c: nc });
+                        const val = this.grid[nr][nc];
+                        if (val === CellState.LIVE || val === CellState.DYING) {
+                            totalCellSurrounding++;
+                            if (val === CellState.DYING) dyingNeighbors++;
+                        }
+                    }
+                }
+
+                const currentVal = this.grid[r][c];
+                let nextVal = currentVal;
+                let lineIdx = LINE_MAPPING.CHECK_NEIGHBOR_CONDITION;
+                
+                let desc = `Cell [${r},${c}]: totalCellSurrounding = ${totalCellSurrounding}.`;
+                if (dyingNeighbors > 0) {
+                    desc += ` (Includes ${dyingNeighbors} neighbor(s) with value 2 that count as LIVE).`;
+                }
+
+                if (currentVal === CellState.LIVE) {
+                    if (totalCellSurrounding < 2 || totalCellSurrounding > 3) {
+                        nextVal = CellState.DYING;
+                        lineIdx = LINE_MAPPING.MARK_DYING;
+                        desc += ` Rule: < 2 or > 3. Marks cell as 2 (Dying).`;
+                    } else {
+                        lineIdx = LINE_MAPPING.CHECK_UNDER_OVER;
+                        desc += ` Rule: 2 or 3 neighbors. Cell survives (Remains 1).`;
+                    }
+                } else if (currentVal === CellState.DEAD) {
+                    if (totalCellSurrounding === 3) {
+                        nextVal = CellState.SPAWNING;
+                        lineIdx = LINE_MAPPING.MARK_SPAWNING;
+                        desc += ` Rule: Exactly 3 neighbors. Marks cell as 3 (Spawning).`;
+                    } else {
+                        lineIdx = LINE_MAPPING.CHECK_SPAWN;
+                        desc += ` Cell remains Dead (0).`;
+                    }
+                } else {
+                    desc += ` Skipping (Already processed?).`;
+                }
+
+                this.grid[r][c] = nextVal;
+
+                const step = {
+                    grid: cloneGrid(this.grid),
+                    activeCell: { r, c },
+                    highlightedNeighbors: neighborCoords,
+                    neighborCount: totalCellSurrounding,
+                    activeLineIndex: lineIdx,
+                    description: desc,
+                    phase: 'UPDATING_TEMP'
+                };
+
+                this.j++;
+                if (this.j >= this.cols) {
+                    this.j = 0;
+                    this.i++;
+                }
+
+                if (this.i >= this.rows) {
+                    this.phase = 'LOOP_2';
+                    this.i = 0;
+                    this.j = 0;
+                }
+
+                return step;
+            }
+
+            processPassTwo() {
+                const r = this.i;
+                const c = this.j;
+                const val = this.grid[r][c];
+                let nextVal = val;
+                let lineIdx = LINE_MAPPING.LOOP_2_START;
+                let desc = `Finalizing cell [${r},${c}].`;
+
+                if (val === CellState.DYING) {
+                    nextVal = CellState.DEAD;
+                    lineIdx = LINE_MAPPING.FINALIZE_2;
+                    desc = `Cell [${r},${c}] has value 2. Updating to 0.`;
+                } else if (val === CellState.SPAWNING) {
+                    nextVal = CellState.LIVE;
+                    lineIdx = LINE_MAPPING.FINALIZE_3;
+                    desc = `Cell [${r},${c}] has value 3. Updating to 1.`;
+                } else {
+                    desc = `Cell [${r},${c}] state ${val} remains unchanged.`;
+                }
+
+                this.grid[r][c] = nextVal;
+
+                const step = {
+                    grid: cloneGrid(this.grid),
+                    activeCell: { r, c },
+                    highlightedNeighbors: [],
+                    neighborCount: null,
+                    activeLineIndex: lineIdx,
+                    description: desc,
+                    phase: 'SECOND_PASS'
+                };
+
+                this.j++;
+                if (this.j >= this.cols) {
+                    this.j = 0;
+                    this.i++;
+                }
+
+                if (this.i >= this.rows) {
+                    this.done = true;
+                    step.phase = 'DONE';
+                    step.activeCell = null;
+                    step.description = "Generation Complete. Ready for next cycle.";
+                }
+
+                return step;
+            }
+        }
+
+        // --- State & Helpers ---
+        const createEmptyGrid = (rows, cols) => 
+            Array(rows).fill(null).map(() => Array(cols).fill(CellState.DEAD));
+
+        const createRandomGrid = (rows, cols) => 
+            Array(rows).fill(null).map(() => Array(cols).fill(0).map(() => Math.random() > 0.7 ? CellState.LIVE : CellState.DEAD));
+
+        const state = {
+            rows: INITIAL_ROWS,
+            cols: INITIAL_COLS,
+            cells: createRandomGrid(INITIAL_ROWS, INITIAL_COLS),
+            engine: null,
+            activeCell: null,
+            highlightedNeighbors: [],
+            neighborCount: null,
+            activeLineIndex: -1,
+            description: "Click 'Run Code' or 'Step' to start the algorithm visualization.",
+            isPlaying: false,
+            speed: 1000,
+            aiExplanation: null,
+            loadingAi: false
+        };
+
+        let timerId = null;
+
+        // --- DOM Elements ---
+        const els = {
+            boardContainer: document.getElementById('board-container'),
+            codeContainer: document.getElementById('code-container'),
+            statusText: document.getElementById('status-text'),
+            aiContainer: document.getElementById('ai-explanation-container'),
+            aiText: document.getElementById('ai-explanation-text'),
+            btnPlay: document.getElementById('btn-play'),
+            btnStep: document.getElementById('btn-step'),
+            btnReset: document.getElementById('btn-reset'),
+            btnClear: document.getElementById('btn-clear'),
+            btnExplain: document.getElementById('btn-explain'),
+            inputSpeed: document.getElementById('input-speed'),
+            iconExplain: document.getElementById('icon-explain'),
+            textExplain: document.getElementById('text-explain'),
+        };
+
+        // --- Render Logic ---
+
+        function getCellColor(s) {
+            switch (s) {
+                case CellState.LIVE: return 'fill-emerald-500';
+                case CellState.DEAD: return 'fill-gray-800';
+                case CellState.DYING: return 'fill-rose-500'; 
+                case CellState.SPAWNING: return 'fill-blue-500'; 
+                default: return 'fill-gray-800';
+            }
+        }
+
+        function renderBoard() {
+            const width = state.cols * (CELL_SIZE + GAP);
+            const height = state.rows * (CELL_SIZE + GAP);
+            
+            const isNeighbor = (r, c) => state.highlightedNeighbors.some(n => n.r === r && n.c === c);
+
+            let svgContent = '';
+
+            state.cells.forEach((row, r) => {
+                row.forEach((cellState, c) => {
+                    const x = c * (CELL_SIZE + GAP);
+                    const y = r * (CELL_SIZE + GAP);
+                    const isActive = state.activeCell?.r === r && state.activeCell?.c === c;
+                    const neighbor = isNeighbor(r, c);
+                    
+                    let strokeColor = "none";
+                    let strokeWidth = 0;
+                    let strokeDash = "none";
+
+                    if (isActive) {
+                        strokeColor = "#fbbf24";
+                        strokeWidth = 3;
+                    } else if (neighbor) {
+                        if (cellState === CellState.DYING) {
+                            strokeColor = "#f43f5e"; 
+                            strokeWidth = 3;
+                            strokeDash = "4 2";
+                        } else {
+                            strokeColor = "#a78bfa"; 
+                            strokeWidth = 2;
+                        }
+                    }
+
+                    const colorClass = getCellColor(cellState);
+                    
+                    // Text overlay for temp states
+                    let textOverlay = '';
+                    if (cellState === CellState.DYING || cellState === CellState.SPAWNING) {
+                        const val = cellState === CellState.DYING ? '2' : '3';
+                        textOverlay = `<text x="${CELL_SIZE/2}" y="${CELL_SIZE/2}" dy=".35em" text-anchor="middle" class="text-xs font-bold fill-white pointer-events-none" style="font-size: 14px; text-shadow: 0px 1px 2px rgba(0,0,0,0.5)">${val}</text>`;
+                    }
+
+                    svgContent += `
+                        <g transform="translate(${x}, ${y})" class="cell-group ${!state.isPlaying && (!state.engine || state.engine.isDone()) ? 'cursor-pointer hover:opacity-80' : ''}" data-r="${r}" data-c="${c}">
+                            <rect width="${CELL_SIZE}" height="${CELL_SIZE}" rx="4" class="transition-colors duration-300 ${colorClass}" stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-dasharray="${strokeDash}"></rect>
+                            ${textOverlay}
+                        </g>
+                    `;
+                });
+            });
+
+            els.boardContainer.innerHTML = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" class="select-none">${svgContent}</svg>`;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return text;
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function renderCode() {
+            // Initial render if empty
+            // Fix: check children.length instead of hasChildNodes to ignore comment/whitespace nodes
+            if (els.codeContainer.children.length === 0) {
+                const lines = JAVA_CODE.split('\n');
+                els.codeContainer.innerHTML = lines.map((line, index) => `
+                    <div id="code-line-${index}" class="relative px-2 rounded transition-colors duration-200 text-gray-400">
+                        <span class="select-none inline-block w-8 text-gray-600 text-right mr-4 text-xs">${index + 1}</span>
+                        <span class="code-text">${escapeHtml(line)}</span>
+                        <div class="active-indicator absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l hidden"></div>
+                    </div>
+                `).join('');
+            }
+
+            // Update highlighting
+            const lines = els.codeContainer.children;
+            for (let i = 0; i < lines.length; i++) {
+                const lineEl = lines[i];
+                const isActive = i === state.activeLineIndex;
+                const indicator = lineEl.querySelector('.active-indicator');
+                const textSpan = lineEl.querySelector('.code-text');
+
+                if (isActive) {
+                    lineEl.className = `relative px-2 rounded transition-colors duration-200 bg-blue-900/40 text-blue-200`;
+                    textSpan.classList.add('font-bold');
+                    indicator.classList.remove('hidden');
+                    
+                    lineEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    lineEl.className = `relative px-2 rounded transition-colors duration-200 text-gray-400`;
+                    textSpan.classList.remove('font-bold');
+                    indicator.classList.add('hidden');
+                }
+            }
+        }
+
+        function renderStatus() {
+            els.statusText.textContent = state.description;
+            
+            if (state.aiExplanation) {
+                els.aiContainer.classList.remove('hidden');
+                els.aiText.textContent = state.aiExplanation;
+            } else {
+                els.aiContainer.classList.add('hidden');
+            }
+        }
+
+        function renderControls() {
+            // Update Play/Pause Button state completely to play nice with Lucide
+            if (state.isPlaying) {
+                els.btnPlay.className = "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all min-w-[140px] justify-center bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-900/20";
+                els.btnPlay.innerHTML = `
+                    <i data-lucide="pause" width="18"></i>
+                    <div class="flex flex-col items-start leading-none">
+                        <span class="text-sm font-bold">Pause</span>
+                        <span class="text-[10px] opacity-80">暂停</span>
+                    </div>
+                `;
+            } else {
+                els.btnPlay.className = "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all min-w-[140px] justify-center bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-900/20";
+                els.btnPlay.innerHTML = `
+                    <i data-lucide="play" width="18"></i>
+                    <div class="flex flex-col items-start leading-none">
+                        <span class="text-sm font-bold">Run Code</span>
+                        <span class="text-[10px] opacity-80">运行代码</span>
+                    </div>
+                `;
+            }
+
+            // Disable logic
+            els.btnStep.disabled = state.isPlaying;
+            els.btnExplain.disabled = state.loadingAi || !state.activeCell;
+            
+            if (state.loadingAi) {
+                els.iconExplain.classList.add('hidden');
+                els.textExplain.textContent = "Asking AI... (正在询问AI...)";
+                els.textExplain.previousElementSibling?.classList.add('animate-pulse');
+            } else {
+                els.iconExplain.classList.remove('hidden');
+                els.textExplain.textContent = "Explain Step (AI 解释当前步骤)";
+            }
+
+            // Re-initialize icons to ensure the new HTML has SVG icons
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        }
+
+        function render() {
+            renderBoard();
+            renderCode();
+            renderStatus();
+            renderControls();
+        }
+
+        // --- Actions ---
+
+        function initializeEngine() {
+            const newEngine = new AlgorithmEngine(state.cells);
+            state.engine = newEngine;
+            return newEngine;
+        }
+
+        function performStep() {
+            let currentEngine = state.engine;
+            if (!currentEngine || currentEngine.isDone()) {
+                currentEngine = initializeEngine();
+            }
+
+            const stepResult = currentEngine.next();
+
+            state.cells = stepResult.grid;
+            state.activeCell = stepResult.activeCell;
+            state.highlightedNeighbors = stepResult.highlightedNeighbors;
+            state.neighborCount = stepResult.neighborCount;
+            state.activeLineIndex = stepResult.activeLineIndex;
+            state.description = stepResult.description;
+            state.aiExplanation = null;
+
+            if (stepResult.phase === 'DONE') {
+                state.isPlaying = false;
+                if (timerId) clearInterval(timerId);
+            }
+
+            render();
+        }
+
+        async function handleExplain() {
+            if (!state.activeCell || state.neighborCount === null) return;
+            
+            state.loadingAi = true;
+            render();
+
+            const r = state.activeCell.r;
+            const c = state.activeCell.c;
+            const currentVal = state.cells[r][c];
+            // Determine logic for explanation context
+            const contextVal = currentVal === CellState.DYING ? CellState.LIVE : (currentVal === CellState.SPAWNING ? CellState.DEAD : currentVal);
+            
+            const prompt = `
+              You are an expert Computer Science TA explaining Conway's Game of Life algorithm (LeetCode 289).
+              
+              Current Context:
+              - We are looking at cell [${r}, ${c}].
+              - Current State: ${contextVal === CellState.LIVE ? 'LIVE (1)' : 'DEAD (0)'}.
+              - Live Neighbors Count: ${state.neighborCount}.
+              - Algorithm Decision: The cell will become state ${currentVal}.
+                (State 2 means it WAS Live but is now marked to die).
+                (State 3 means it WAS Dead but is now marked to become live).
+              
+              Explain clearly and concisely (in 2 sentences) why this transition is happening based on the Game of Life rules (Underpopulation, Overpopulation, Survival, Reproduction) and how the in-place algorithm uses the temporary state (${currentVal}) to avoid messing up calculations for subsequent cells.
+            `;
+
+            try {
+                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: prompt,
+                });
+                state.aiExplanation = response.text || "Could not generate explanation.";
+            } catch (error) {
+                console.error("Gemini Error", error);
+                state.aiExplanation = "Error connecting to AI service.";
+            }
+
+            state.loadingAi = false;
+            render();
+        }
+
+        // --- Event Listeners ---
+
+        els.btnPlay.addEventListener('click', () => {
+            if (state.isPlaying) {
+                state.isPlaying = false;
+                if (timerId) clearInterval(timerId);
+            } else {
+                state.isPlaying = true;
+                timerId = setInterval(performStep, state.speed);
+            }
+            render();
+        });
+
+        els.btnStep.addEventListener('click', performStep);
+
+        els.btnReset.addEventListener('click', () => {
+            state.isPlaying = false;
+            if (timerId) clearInterval(timerId);
+            state.engine = null;
+            state.cells = createRandomGrid(INITIAL_ROWS, INITIAL_COLS);
+            state.activeCell = null;
+            state.highlightedNeighbors = [];
+            state.activeLineIndex = -1;
+            state.description = "Board reset with random data.";
+            state.aiExplanation = null;
+            render();
+        });
+
+        els.btnClear.addEventListener('click', () => {
+            state.isPlaying = false;
+            if (timerId) clearInterval(timerId);
+            state.engine = null;
+            state.cells = createEmptyGrid(INITIAL_ROWS, INITIAL_COLS);
+            state.activeCell = null;
+            state.activeLineIndex = -1;
+            state.description = "Board cleared.";
+            state.aiExplanation = null;
+            render();
+        });
+
+        els.inputSpeed.addEventListener('input', (e) => {
+            state.speed = Number(e.target.value);
+            if (state.isPlaying) {
+                clearInterval(timerId);
+                timerId = setInterval(performStep, state.speed);
+            }
+        });
+
+        els.btnExplain.addEventListener('click', handleExplain);
+
+        // Board Interaction (Delegation)
+        els.boardContainer.addEventListener('click', (e) => {
+            // If playing or engine running, ignore
+            if (state.isPlaying || (state.engine && !state.engine.isDone())) return;
+
+            const group = e.target.closest('.cell-group');
+            if (group) {
+                const r = parseInt(group.dataset.r);
+                const c = parseInt(group.dataset.c);
+                
+                // Toggle cell
+                const current = state.cells[r][c];
+                state.cells[r][c] = current === CellState.LIVE ? CellState.DEAD : CellState.LIVE;
+                
+                // Invalidate engine
+                state.engine = null;
+                state.description = "Board modified. Ready to start.";
+                state.aiExplanation = null;
+                
+                render();
+            }
+        });
+
+        // Init
+        render();
+
+    </script>
+</body>
+</html>
