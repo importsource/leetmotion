@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ransom Note Visualizer (Vanilla JS)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Smooth transitions for SVG elements */
+        .anim-element {
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        /* Fade transition */
+        .fade-transition {
+            transition: opacity 0.3s ease;
+        }
+
+        .typing-effect::after {
+            content: '▋';
+            animation: blink 1s step-start infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        /* Custom scrollbar for log */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center py-10 px-4">
+
+    <!-- Header -->
+    <header class="mb-8 text-center max-w-2xl">
+        <div class="flex items-center justify-center gap-3 mb-2">
+            <a href="https://importsource.github.io/leetmotion/" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                <span>Home</span>
+            </a>
+        </div>
+        <h1 class="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 mb-2">
+            Ransom Note Visualizer
+        </h1>
+        <p class="text-slate-400 text-sm md:text-base">
+            LeetCode 383. Visualize how to determine if a ransom note can be constructed from a magazine using a frequency map (hash table).
+        </p>
+    </header>
+
+    <div class="w-full max-w-4xl space-y-6">
+        
+        <!-- Visualization Area -->
+        <div class="relative w-full overflow-hidden bg-slate-800 rounded-xl shadow-2xl border border-slate-700">
+            <!-- SVG Container -->
+            <svg id="visualizer-svg" viewBox="0 0 800 500" class="w-full h-auto max-h-[60vh] select-none" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                    <linearGradient id="gradient-line" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#818cf8" />
+                        <stop offset="100%" stopColor="#c084fc" />
+                    </linearGradient>
+                </defs>
+
+                <!-- Background Labels -->
+                <text x="20" y="130" class="fill-slate-500 text-xs uppercase font-bold tracking-widest">Target (Ransom Note)</text>
+                <text x="20" y="280" class="fill-slate-500 text-xs uppercase font-bold tracking-widest">Frequency Map</text>
+                <text x="20" y="430" class="fill-slate-500 text-xs uppercase font-bold tracking-widest">Source (Magazine)</text>
+
+                <!-- Dynamic Layer Groups -->
+                <line id="connection-line" x1="0" y1="0" x2="0" y2="0" stroke="url(#gradient-line)" stroke-width="3" stroke-dasharray="5 5" class="anim-element opacity-0"></line>
+                
+                <g id="group-ransom"></g>
+                <g id="group-buckets"></g>
+                <g id="group-magazine"></g>
+            </svg>
+
+            <!-- Status Overlay -->
+            <div class="absolute top-4 right-4">
+                <div id="status-badge" class="px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider shadow-lg backdrop-blur-sm bg-slate-700 text-slate-300 transition-colors duration-300">
+                    Ready
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Area -->
+        <div class="bg-black/40 rounded-lg p-4 font-mono text-sm border border-slate-800 shadow-inner h-24 overflow-y-auto flex items-center gap-3">
+            <svg class="text-slate-500 shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="4 17 10 11 4 5"></polyline>
+                <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+            <span id="log-message" class="text-emerald-400 opacity-90 typing-effect">Initialize...</span>
+        </div>
+
+        <!-- Controls -->
+        <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-6">
+            <!-- Inputs -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-400">Ransom Note (Target)</label>
+                    <input type="text" id="input-ransom" maxlength="10" value="aa" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-600">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-slate-400">Magazine (Source)</label>
+                    <input type="text" id="input-magazine" maxlength="15" value="aab" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-600">
+                </div>
+            </div>
+
+            <!-- Buttons & Slider -->
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-700">
+                <div class="flex items-center gap-2">
+                    <!-- Run Code -->
+                    <button id="btn-run" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg font-semibold transition-colors shadow-lg shadow-emerald-900/20 active:scale-95 transform duration-100">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+                        Run Code
+                    </button>
+
+                    <div class="h-8 w-px bg-slate-700 mx-2"></div>
+
+                    <!-- Play/Pause -->
+                    <button id="btn-play" class="p-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors active:scale-95" title="Play/Pause">
+                        <svg id="icon-play" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        <svg id="icon-pause" class="hidden" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                    </button>
+                    
+                    <!-- Step -->
+                    <button id="btn-step" class="p-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors active:scale-95" title="Step Forward">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                    </button>
+                    
+                    <!-- Reset -->
+                    <button id="btn-reset" class="p-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors active:scale-95" title="Reset">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-4 w-full md:w-auto">
+                    <div class="flex items-center gap-2 text-slate-400">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>
+                        <span class="text-xs font-medium uppercase tracking-wider">Speed</span>
+                    </div>
+                    <input type="range" id="input-speed" min="100" max="1000" step="100" value="600" dir="rtl" class="w-32 h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div id="progress-bar" class="h-full bg-indigo-500 transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONSTANTS ---
+        const CONSTANTS = {
+            ITEM_SIZE: 50,
+            GAP: 10,
+            ROW_RANSOM_Y: 100,
+            ROW_BUCKET_Y: 250,
+            ROW_MAGAZINE_Y: 400,
+            CANVAS_WIDTH: 800,
+            CANVAS_HEIGHT: 500,
+        };
+
+        const COLORS = {
+            SLATE_FILL: "#1e293b",
+            SLATE_STROKE: "#475569",
+            INDIGO_FILL: "#4f46e5",
+            INDIGO_STROKE: "#818cf8",
+            ROSE_FILL: "#e11d48",
+            ROSE_STROKE: "#fda4af",
+            EMERALD_FILL: "#059669",
+            EMERALD_STROKE: "#34d399",
+            SKY_FILL: "#0ea5e9",
+            SKY_STROKE: "#7dd3fc",
+            AMBER: "#fbbf24",
+        };
+
+        // --- STATE ---
+        let state = {
+            ransomNote: 'aa',
+            magazine: 'aab',
+            steps: [],
+            currentStepIndex: 0,
+            isPlaying: false,
+            playbackSpeed: 600,
+            timer: null
+        };
+
+        // --- DOM ELEMENTS ---
+        const els = {
+            svg: document.getElementById('visualizer-svg'),
+            groupRansom: document.getElementById('group-ransom'),
+            groupBuckets: document.getElementById('group-buckets'),
+            groupMagazine: document.getElementById('group-magazine'),
+            connectionLine: document.getElementById('connection-line'),
+            statusBadge: document.getElementById('status-badge'),
+            logMessage: document.getElementById('log-message'),
+            progressBar: document.getElementById('progress-bar'),
+            inputRansom: document.getElementById('input-ransom'),
+            inputMagazine: document.getElementById('input-magazine'),
+            btnRun: document.getElementById('btn-run'),
+            btnPlay: document.getElementById('btn-play'),
+            btnStep: document.getElementById('btn-step'),
+            btnReset: document.getElementById('btn-reset'),
+            iconPlay: document.getElementById('icon-play'),
+            iconPause: document.getElementById('icon-pause'),
+            inputSpeed: document.getElementById('input-speed')
+        };
+
+        // --- ALGORITHM ---
+        const generateSteps = (ransomNote, magazine) => {
+            const steps = [];
+            const counts = {};
+            const uniqueChars = new Set([...ransomNote.split(''), ...magazine.split('')]);
+            uniqueChars.forEach(c => { counts[c] = 0; });
+
+            // Step 0: Init
+            steps.push({
+                phase: 'init',
+                magazineIndex: null,
+                ransomIndex: null,
+                counts: { ...counts },
+                activeChar: null,
+                message: 'Initialize frequency map (hash table) to store character counts.',
+            });
+
+            // Phase 1: Scan Magazine
+            for (let i = 0; i < magazine.length; i++) {
+                const char = magazine[i];
+                counts[char] = (counts[char] || 0) + 1;
+                steps.push({
+                    phase: 'scan_magazine',
+                    magazineIndex: i,
+                    ransomIndex: null,
+                    counts: { ...counts },
+                    activeChar: char,
+                    message: `Scanning Magazine: Found '${char}'. Incrementing count to ${counts[char]}.`,
+                });
+            }
+
+            steps.push({
+                phase: 'scan_magazine',
+                magazineIndex: null,
+                ransomIndex: null,
+                counts: { ...counts },
+                activeChar: null,
+                message: 'Magazine scan complete. Ready to check Ransom Note.',
+            });
+
+            // Phase 2: Check Ransom
+            for (let i = 0; i < ransomNote.length; i++) {
+                const char = ransomNote[i];
+                steps.push({
+                    phase: 'scan_ransom',
+                    magazineIndex: null,
+                    ransomIndex: i,
+                    counts: { ...counts },
+                    activeChar: char,
+                    message: `Checking Ransom Note: Need '${char}'. Current count in map: ${counts[char] || 0}.`,
+                });
+
+                if (!counts[char] || counts[char] <= 0) {
+                    steps.push({
+                        phase: 'fail',
+                        magazineIndex: null,
+                        ransomIndex: i,
+                        counts: { ...counts },
+                        activeChar: char,
+                        message: `Error: '${char}' is needed but not available in the magazine!`,
+                        result: false,
+                    });
+                    return steps;
+                }
+
+                counts[char]--;
+                steps.push({
+                    phase: 'scan_ransom',
+                    magazineIndex: null,
+                    ransomIndex: i,
+                    counts: { ...counts }, // After decrement
+                    activeChar: char,
+                    message: `Found '${char}'! Decrementing count to ${counts[char]}.`,
+                });
+            }
+
+            // Final Success
+            steps.push({
+                phase: 'complete',
+                magazineIndex: null,
+                ransomIndex: null,
+                counts: { ...counts },
+                activeChar: null,
+                message: 'Success! Ransom note can be constructed from the magazine.',
+                result: true,
+            });
+
+            return steps;
+        };
+
+        // --- RENDER HELPERS ---
+        // Basic reconciliation: Create if missing, Update if present, Remove if obsolete (though strict removal isn't key here as items are static mostly)
+        
+        function updateElement(parentId, dataArray, createFn, updateFn, keyFn) {
+            const parent = document.getElementById(parentId);
+            const existing = Array.from(parent.children);
+            const existingMap = new Map();
+            existing.forEach(el => existingMap.set(el.dataset.key, el));
+            
+            // Track which keys are used in this render
+            const usedKeys = new Set();
+
+            dataArray.forEach((data, index) => {
+                const key = keyFn(data, index);
+                usedKeys.add(key);
+                let el = existingMap.get(key);
+
+                if (!el) {
+                    el = createFn(data, index);
+                    el.dataset.key = key;
+                    parent.appendChild(el);
+                    // Force reflow to ensure transition runs from initial state
+                    void el.offsetWidth; 
+                }
+                updateFn(el, data, index);
+            });
+
+            // Remove unused
+            existing.forEach(el => {
+                if (!usedKeys.has(el.dataset.key)) {
+                    el.style.opacity = '0';
+                    setTimeout(() => { if(el.parentNode) el.parentNode.removeChild(el); }, 300);
+                }
+            });
+        }
+
+        const createRectItem = (char) => {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.classList.add("anim-element");
+            g.innerHTML = `
+                <rect width="${CONSTANTS.ITEM_SIZE}" height="${CONSTANTS.ITEM_SIZE}" rx="8" stroke-width="2" />
+                <text x="${CONSTANTS.ITEM_SIZE/2}" y="${CONSTANTS.ITEM_SIZE/2}" text-anchor="middle" dominant-baseline="middle" class="fill-white font-bold text-xl">${char}</text>
+                <circle class="indicator" cx="${CONSTANTS.ITEM_SIZE/2}" cy="-15" r="4" fill="#818cf8" opacity="0" />
+            `;
+            return g;
+        };
+
+        const createCircleItem = (char) => {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.classList.add("anim-element");
+            g.innerHTML = `
+                <circle cx="25" cy="25" r="24" stroke-width="2" />
+                <text x="25" y="25" text-anchor="middle" dominant-baseline="middle" class="fill-white font-bold text-xl">${char}</text>
+                <circle class="indicator" cx="25" cy="55" r="4" fill="#38bdf8" opacity="0" />
+            `;
+            return g;
+        };
+
+        const createBucketItem = (char) => {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.classList.add("anim-element");
+            // Start transparent
+            g.style.opacity = "0"; 
+            g.innerHTML = `
+                <path d="M 0 0 L 0 40 Q 25 60 50 40 L 50 0" fill="none" stroke-width="3" />
+                <text class="label-char" x="25" y="75" text-anchor="middle" class="text-sm font-bold uppercase fill-slate-500">${char}</text>
+                <circle class="count-bg anim-element" cx="25" cy="25" r="18" fill="#334155" />
+                <text class="count-text anim-element" x="25" y="25" text-anchor="middle" dominant-baseline="middle" class="font-mono text-sm font-bold fill-white">0</text>
+            `;
+            return g;
+        };
+
+        // --- MAIN RENDER ---
+        const render = () => {
+            const step = state.steps[state.currentStepIndex];
+            if (!step) return;
+
+            // 1. Calculations
+            const magTotalW = state.magazine.length * (CONSTANTS.ITEM_SIZE + CONSTANTS.GAP);
+            const magStartX = (CONSTANTS.CANVAS_WIDTH - magTotalW) / 2;
+            const magazineData = state.magazine.split('').map((char, i) => ({
+                char, x: magStartX + i * (CONSTANTS.ITEM_SIZE + CONSTANTS.GAP), y: CONSTANTS.ROW_MAGAZINE_Y
+            }));
+
+            const ranTotalW = state.ransomNote.length * (CONSTANTS.ITEM_SIZE + CONSTANTS.GAP);
+            const ranStartX = (CONSTANTS.CANVAS_WIDTH - ranTotalW) / 2;
+            const ransomData = state.ransomNote.split('').map((char, i) => ({
+                char, x: ranStartX + i * (CONSTANTS.ITEM_SIZE + CONSTANTS.GAP), y: CONSTANTS.ROW_RANSOM_Y
+            }));
+
+            const bucketKeys = Object.keys(step.counts).sort();
+            const bucketTotalW = bucketKeys.length * (CONSTANTS.ITEM_SIZE + CONSTANTS.GAP * 2);
+            const bucketStartX = (CONSTANTS.CANVAS_WIDTH - bucketTotalW) / 2;
+            const bucketData = bucketKeys.map((char, i) => ({
+                char, x: bucketStartX + i * (CONSTANTS.ITEM_SIZE + CONSTANTS.GAP * 2), y: CONSTANTS.ROW_BUCKET_Y
+            }));
+
+            // 2. Render Ransom Items
+            updateElement('group-ransom', ransomData, 
+                (d) => createRectItem(d.char),
+                (el, d, i) => {
+                    // Logic
+                    const isCurrent = step.phase === 'scan_ransom' && step.ransomIndex === i;
+                    const isPast = step.ransomIndex !== null && i < step.ransomIndex;
+                    const isFailed = step.phase === 'fail' && step.ransomIndex === i;
+                    const isComplete = step.phase === 'complete';
+
+                    // Style
+                    const rect = el.querySelector('rect');
+                    const indicator = el.querySelector('.indicator');
+
+                    let fill = COLORS.SLATE_FILL;
+                    let stroke = COLORS.SLATE_STROKE;
+                    let scale = 1;
+
+                    if (isCurrent) {
+                        fill = COLORS.INDIGO_FILL;
+                        stroke = COLORS.INDIGO_STROKE;
+                        scale = 1.1;
+                        indicator.style.opacity = '1';
+                    } else if (isFailed) {
+                        fill = COLORS.ROSE_FILL;
+                        stroke = COLORS.ROSE_STROKE;
+                        indicator.style.opacity = '0';
+                    } else if (isPast || isComplete) {
+                        fill = COLORS.EMERALD_FILL;
+                        stroke = COLORS.EMERALD_STROKE;
+                        indicator.style.opacity = '0';
+                    } else {
+                        indicator.style.opacity = '0';
+                    }
+
+                    el.style.transform = `translate(${d.x}px, ${d.y}px) scale(${scale})`;
+                    rect.setAttribute('fill', fill);
+                    rect.setAttribute('stroke', stroke);
+                },
+                (d, i) => `ran-${i}`
+            );
+
+            // 3. Render Magazine Items
+            updateElement('group-magazine', magazineData,
+                (d) => createCircleItem(d.char),
+                (el, d, i) => {
+                    const isCurrent = step.phase === 'scan_magazine' && step.magazineIndex === i;
+                    const isScanComplete = step.phase !== 'scan_magazine' && step.phase !== 'init';
+
+                    const circle = el.querySelector('circle:not(.indicator)');
+                    const indicator = el.querySelector('.indicator');
+
+                    let fill = COLORS.SLATE_FILL;
+                    let stroke = COLORS.SLATE_STROKE;
+                    let scale = 1;
+                    let opacity = isScanComplete ? '0.4' : '1';
+
+                    if (isCurrent) {
+                        fill = COLORS.SKY_FILL;
+                        stroke = COLORS.SKY_STROKE;
+                        scale = 1.2;
+                        indicator.style.opacity = '1';
+                        opacity = '1';
+                    } else {
+                        indicator.style.opacity = '0';
+                    }
+
+                    el.style.transform = `translate(${d.x}px, ${d.y}px) scale(${scale})`;
+                    el.style.opacity = opacity;
+                    circle.setAttribute('fill', fill);
+                    circle.setAttribute('stroke', stroke);
+                },
+                (d, i) => `mag-${i}`
+            );
+
+            // 4. Render Buckets
+            updateElement('group-buckets', bucketData,
+                (d) => createBucketItem(d.char),
+                (el, d, i) => {
+                    const isActive = step.activeChar === d.char;
+                    const count = step.counts[d.char];
+
+                    const path = el.querySelector('path');
+                    const label = el.querySelector('.label-char');
+                    const bg = el.querySelector('.count-bg');
+                    const txt = el.querySelector('.count-text');
+
+                    el.style.transform = `translate(${d.x}px, ${d.y}px) scale(${isActive ? 1.1 : 1})`;
+                    el.style.opacity = "1";
+
+                    path.setAttribute('stroke', isActive ? COLORS.AMBER : COLORS.SLATE_STROKE);
+                    label.setAttribute('fill', isActive ? COLORS.AMBER : "#64748b"); // slate-500
+                    
+                    bg.setAttribute('fill', isActive ? COLORS.AMBER : "#334155");
+                    // Simple pop effect on count change
+                    if (txt.textContent !== String(count)) {
+                        txt.style.transform = "scale(1.5)";
+                        setTimeout(() => txt.style.transform = "scale(1)", 200);
+                    }
+                    txt.textContent = count;
+                    txt.setAttribute('fill', isActive ? "#0f172a" : "white");
+                },
+                (d) => `bucket-${d.char}`
+            );
+
+            // 5. Render Connection Line
+            let lineCoords = null;
+            if (step.phase === 'scan_magazine' && step.magazineIndex !== null) {
+                const source = magazineData[step.magazineIndex];
+                const target = bucketData.find(b => b.char === step.activeChar);
+                if (source && target) {
+                    lineCoords = { x1: source.x + 25, y1: source.y, x2: target.x + 25, y2: target.y + 50 };
+                }
+            } else if (step.phase === 'scan_ransom' && step.ransomIndex !== null) {
+                const source = ransomData[step.ransomIndex];
+                const target = bucketData.find(b => b.char === step.activeChar);
+                if (source && target) {
+                    lineCoords = { x1: source.x + 25, y1: source.y + 50, x2: target.x + 25, y2: target.y };
+                }
+            }
+
+            if (lineCoords) {
+                els.connectionLine.setAttribute('x1', lineCoords.x1);
+                els.connectionLine.setAttribute('y1', lineCoords.y1);
+                els.connectionLine.setAttribute('x2', lineCoords.x2);
+                els.connectionLine.setAttribute('y2', lineCoords.y2);
+                els.connectionLine.classList.remove('opacity-0');
+            } else {
+                els.connectionLine.classList.add('opacity-0');
+            }
+
+            // 6. UI Updates
+            els.logMessage.textContent = `${step.message}`;
+            
+            // Status Badge
+            let statusClass = "bg-slate-700 text-slate-300";
+            let statusText = "Ready";
+            if (step.phase === 'scan_magazine') {
+                statusClass = "bg-sky-900/50 text-sky-200 border border-sky-700/50";
+                statusText = "Building Frequency Map";
+            } else if (step.phase === 'scan_ransom') {
+                statusClass = "bg-indigo-900/50 text-indigo-200 border border-indigo-700/50";
+                statusText = "Checking Ransom Note";
+            } else if (step.phase === 'complete') {
+                statusClass = "bg-emerald-900/50 text-emerald-200 border border-emerald-700/50";
+                statusText = "Result: True";
+            } else if (step.phase === 'fail') {
+                statusClass = "bg-rose-900/50 text-rose-200 border border-rose-700/50";
+                statusText = "Result: False";
+            }
+            els.statusBadge.className = `px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider shadow-lg backdrop-blur-sm transition-colors duration-300 ${statusClass}`;
+            els.statusBadge.textContent = statusText;
+
+            // Progress Bar
+            const progress = (state.currentStepIndex / (state.steps.length - 1)) * 100;
+            els.progressBar.style.width = `${progress}%`;
+
+            // Play Button Icon
+            if (state.isPlaying) {
+                els.iconPlay.classList.add('hidden');
+                els.iconPause.classList.remove('hidden');
+            } else {
+                els.iconPlay.classList.remove('hidden');
+                els.iconPause.classList.add('hidden');
+            }
+        };
+
+        // --- CONTROLLER LOGIC ---
+        const init = () => {
+            const r = els.inputRansom.value.toLowerCase().replace(/[^a-z]/g, '');
+            const m = els.inputMagazine.value.toLowerCase().replace(/[^a-z]/g, '');
+            state.ransomNote = r;
+            state.magazine = m;
+            state.steps = generateSteps(r, m);
+            state.currentStepIndex = 0;
+            render();
+        };
+
+        const togglePlay = () => {
+            state.isPlaying = !state.isPlaying;
+            if (state.isPlaying) {
+                // If at end, restart
+                if (state.currentStepIndex >= state.steps.length - 1) {
+                    state.currentStepIndex = 0;
+                }
+                state.timer = setInterval(tick, state.playbackSpeed);
+            } else {
+                clearInterval(state.timer);
+            }
+            render();
+        };
+
+        const tick = () => {
+            if (state.currentStepIndex < state.steps.length - 1) {
+                state.currentStepIndex++;
+                render();
+            } else {
+                state.isPlaying = false;
+                clearInterval(state.timer);
+                render();
+            }
+        };
+
+        const stepForward = () => {
+            state.isPlaying = false;
+            clearInterval(state.timer);
+            if (state.currentStepIndex < state.steps.length - 1) {
+                state.currentStepIndex++;
+            }
+            render();
+        };
+
+        const reset = () => {
+            state.isPlaying = false;
+            clearInterval(state.timer);
+            state.currentStepIndex = 0;
+            render();
+        };
+
+        const runCode = () => {
+            reset();
+            state.isPlaying = true;
+            state.timer = setInterval(tick, state.playbackSpeed);
+            render();
+        };
+
+        // --- EVENT LISTENERS ---
+        els.inputRansom.addEventListener('input', (e) => {
+            state.isPlaying = false;
+            clearInterval(state.timer);
+            // Sanitize
+            e.target.value = e.target.value.toLowerCase().replace(/[^a-z]/g, '');
+            init();
+        });
+
+        els.inputMagazine.addEventListener('input', (e) => {
+            state.isPlaying = false;
+            clearInterval(state.timer);
+            // Sanitize
+            e.target.value = e.target.value.toLowerCase().replace(/[^a-z]/g, '');
+            init();
+        });
+
+        els.btnRun.addEventListener('click', runCode);
+        els.btnPlay.addEventListener('click', togglePlay);
+        els.btnStep.addEventListener('click', stepForward);
+        els.btnReset.addEventListener('click', reset);
+
+        els.inputSpeed.addEventListener('input', (e) => {
+            state.playbackSpeed = Number(e.target.value);
+            if (state.isPlaying) {
+                clearInterval(state.timer);
+                state.timer = setInterval(tick, state.playbackSpeed);
+            }
+        });
+
+        // --- BOOTSTRAP ---
+        init();
+
+    </script>
+</body>
+</html>
