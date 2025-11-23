@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isomorphic Strings - LeetMotion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        .slider-rtl {
+            direction: rtl;
+        }
+        /* Smooth transitions for UI elements */
+        .transition-all-300 {
+            transition: all 0.3s ease-in-out;
+        }
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #e2e8f0;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-indigo-600 rounded-lg shadow-sm">
+                    <i data-lucide="code-2" class="text-white w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
+                        LeetMotion
+                    </h1>
+                    <span class="text-xs font-medium text-slate-500">205. Isomorphic Strings</span>
+                </div>
+            </div>
+            <a href="https://importsource.github.io/leetmotion/" target="_blank" rel="noreferrer"
+                class="flex items-center space-x-2 text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors bg-slate-50 hover:bg-indigo-50 px-3 py-1.5 rounded-full border border-transparent hover:border-indigo-100">
+                <span>Home Page</span>
+                <i data-lucide="external-link" class="w-4 h-4"></i>
+            </a>
+        </div>
+    </header>
+
+    <main class="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+        
+        <!-- Controls & Input Section -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <div class="grid lg:grid-cols-12 gap-8">
+                
+                <!-- Inputs -->
+                <div class="lg:col-span-7 space-y-6">
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">String S</label>
+                            <input type="text" id="input-s" value="egg" maxlength="15"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-mono text-lg text-slate-700 placeholder-slate-300"
+                                placeholder="e.g. egg">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">String T</label>
+                            <input type="text" id="input-t" value="add" maxlength="15"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-mono text-lg text-slate-700 placeholder-slate-300"
+                                placeholder="e.g. add">
+                        </div>
+                    </div>
+
+                    <!-- Presets -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-2">Presets:</span>
+                        <button data-s="egg" data-t="add" class="preset-btn px-3 py-1 text-xs font-semibold bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 rounded-full transition-colors border border-slate-200 hover:border-indigo-200">egg / add</button>
+                        <button data-s="foo" data-t="bar" class="preset-btn px-3 py-1 text-xs font-semibold bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 rounded-full transition-colors border border-slate-200 hover:border-indigo-200">foo / bar</button>
+                        <button data-s="paper" data-t="title" class="preset-btn px-3 py-1 text-xs font-semibold bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 rounded-full transition-colors border border-slate-200 hover:border-indigo-200">paper / title</button>
+                        <button data-s="badc" data-t="baba" class="preset-btn px-3 py-1 text-xs font-semibold bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 rounded-full transition-colors border border-slate-200 hover:border-indigo-200">badc / baba</button>
+                    </div>
+                </div>
+
+                <!-- Playback Controls -->
+                <div class="lg:col-span-5 flex flex-col justify-end">
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col gap-4">
+                        <div class="flex items-center justify-between">
+                            <!-- Step Counter -->
+                            <div class="text-xs font-mono font-semibold text-slate-500 bg-white px-2 py-1 rounded border border-slate-200" id="step-counter">
+                                Step 0 / 0
+                            </div>
+
+                            <!-- Main Buttons -->
+                            <div class="flex items-center space-x-2">
+                                <button id="btn-reset" class="p-2 rounded-lg hover:bg-white hover:shadow-sm text-slate-500 hover:text-indigo-600 transition-all" title="Reset">
+                                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                                </button>
+                                <div class="h-6 w-px bg-slate-300 mx-2"></div>
+                                <button id="btn-step-back" class="p-2 rounded-lg hover:bg-white hover:shadow-sm text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent transition-all">
+                                    <i data-lucide="step-back" class="w-5 h-5"></i>
+                                </button>
+                                <button id="btn-play-pause" class="flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200 transition-all">
+                                    <i data-lucide="play" class="w-5 h-5 fill-current"></i>
+                                </button>
+                                <button id="btn-step-fwd" class="p-2 rounded-lg hover:bg-white hover:shadow-sm text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent transition-all">
+                                    <i data-lucide="step-forward" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Speed Slider -->
+                        <div class="flex items-center space-x-3 text-xs font-medium text-slate-500">
+                            <span>Slow</span>
+                            <input type="range" id="speed-slider" min="200" max="2000" step="100" value="1000"
+                                class="slider-rtl flex-grow h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                            <span>Fast</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Visualization Stage -->
+        <section class="grid lg:grid-cols-12 gap-6">
+            
+            <!-- SVG Container -->
+            <div class="lg:col-span-8 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative h-[400px] md:h-[500px]">
+                <div class="absolute top-4 left-4 px-3 py-1 bg-slate-100 rounded-full border border-slate-200 z-10">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Visualization</span>
+                </div>
+                <div id="svg-container" class="w-full h-full"></div>
+            </div>
+
+            <!-- Sidebar: Logic & Status -->
+            <div class="lg:col-span-4 flex flex-col gap-6 h-[500px]">
+                
+                <!-- Mappings -->
+                <div class="flex-grow bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col overflow-hidden">
+                    <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Character Maps</h3>
+                        <span class="text-[10px] font-mono bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100">Hash Map</span>
+                    </div>
+                    <div id="map-container" class="space-y-2 overflow-y-auto custom-scrollbar flex-grow">
+                        <!-- Mappings injected here -->
+                        <div class="flex flex-col items-center justify-center h-full text-slate-300 space-y-2">
+                            <i data-lucide="map" class="w-8 h-8 opacity-50"></i>
+                            <span class="text-sm">No mappings yet</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Status Box -->
+                <div id="status-box" class="p-5 rounded-2xl shadow-sm border bg-white border-slate-200 transition-all duration-500 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-indigo-500 transition-colors duration-300" id="status-indicator"></div>
+                    <h4 class="font-bold text-xs uppercase mb-2 text-slate-400 tracking-wider">Current Status</h4>
+                    <p id="status-message" class="text-sm font-medium text-slate-700 leading-relaxed">
+                        Initialize inputs to start the algorithm.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-white border-t border-slate-200 py-8 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-slate-500 text-sm mb-4 font-medium">
+                Designed for LeetCode 205: Isomorphic Strings
+            </p>
+            <div class="flex justify-center items-center space-x-1 text-slate-400 text-xs">
+                <span>Powered by Plain JS & D3.js</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- APP LOGIC -->
+    <script>
+        /**
+         * ALGORITHM IMPLEMENTATION
+         * LeetCode 205: Isomorphic Strings
+         */
+        function generateSteps(s, t) {
+            const steps = [];
+            const sMap = {};
+            const tMap = {};
+
+            // Input validation step
+            if (!s || !t) {
+                return { steps: [], isIsomorphic: false };
+            }
+
+            // Length Check
+            if (s.length !== t.length) {
+                steps.push({
+                    index: -1,
+                    sChar: '',
+                    tChar: '',
+                    sMap: {},
+                    tMap: {},
+                    status: 'complete_fail',
+                    message: 'Strings must be of equal length to be isomorphic.',
+                    highlightIndices: [],
+                });
+                return { steps, isIsomorphic: false };
+            }
+
+            for (let i = 0; i < s.length; i++) {
+                const charS = s[i];
+                const charT = t[i];
+
+                // Step: Checking current characters
+                steps.push({
+                    index: i,
+                    sChar: charS,
+                    tChar: charT,
+                    sMap: { ...sMap },
+                    tMap: { ...tMap },
+                    status: 'checking',
+                    message: `Processing index ${i}: Is '${charS}' compatible with '${charT}'?`,
+                    highlightIndices: [i],
+                });
+
+                const mappedT = sMap[charS];
+                const mappedS = tMap[charT];
+
+                // Check conflict in S -> T
+                if (mappedT !== undefined && mappedT !== charT) {
+                    steps.push({
+                        index: i,
+                        sChar: charS,
+                        tChar: charT,
+                        sMap: { ...sMap },
+                        tMap: { ...tMap },
+                        status: 'mismatch_s',
+                        message: `Conflict detected! '${charS}' maps to '${mappedT}', but we found '${charT}'.`,
+                        highlightIndices: [i],
+                    });
+                    return { steps, isIsomorphic: false };
+                }
+
+                // Check conflict in T -> S
+                if (mappedS !== undefined && mappedS !== charS) {
+                    steps.push({
+                        index: i,
+                        sChar: charS,
+                        tChar: charT,
+                        sMap: { ...sMap },
+                        tMap: { ...tMap },
+                        status: 'mismatch_t',
+                        message: `Conflict detected! '${charT}' is already mapped to '${mappedS}', but we found '${charS}'.`,
+                        highlightIndices: [i],
+                    });
+                    return { steps, isIsomorphic: false };
+                }
+
+                // Create new mapping if needed
+                if (mappedT === undefined && mappedS === undefined) {
+                    sMap[charS] = charT;
+                    tMap[charT] = charS;
+                    steps.push({
+                        index: i,
+                        sChar: charS,
+                        tChar: charT,
+                        sMap: { ...sMap },
+                        tMap: { ...tMap },
+                        status: 'match',
+                        message: `New mapping created: '${charS}' → '${charT}'`,
+                        highlightIndices: [i],
+                    });
+                } else {
+                    // Mapping exists and is valid
+                    steps.push({
+                        index: i,
+                        sChar: charS,
+                        tChar: charT,
+                        sMap: { ...sMap },
+                        tMap: { ...tMap },
+                        status: 'match',
+                        message: `Existing mapping verified: '${charS}' → '${charT}'`,
+                        highlightIndices: [i],
+                    });
+                }
+            }
+
+            // Success
+            steps.push({
+                index: s.length, // End
+                sChar: '',
+                tChar: '',
+                sMap: { ...sMap },
+                tMap: { ...tMap },
+                status: 'complete_success',
+                message: 'Scan complete! No conflicts found. The strings are isomorphic.',
+                highlightIndices: [],
+            });
+
+            return { steps, isIsomorphic: true };
+        }
+
+        /**
+         * STATE MANAGEMENT
+         */
+        const state = {
+            s: 'egg',
+            t: 'add',
+            result: null,
+            currentStepIndex: 0,
+            isPlaying: false,
+            speed: 1000,
+            timer: null
+        };
+
+        /**
+         * VISUALIZATION ENGINE (D3.js)
+         */
+        function initVisualization() {
+            const container = d3.select("#svg-container");
+            container.html(""); // Clear previous
+            
+            const svg = container.append("svg")
+                .attr("width", "100%")
+                .attr("height", "100%")
+                .attr("viewBox", "0 0 800 500")
+                .attr("preserveAspectRatio", "xMidYMid meet");
+
+            // Definitions
+            const defs = svg.append("defs");
+            
+            // Arrow Markers
+            const createMarker = (id, color) => {
+                defs.append("marker")
+                    .attr("id", id)
+                    .attr("markerWidth", 12)
+                    .attr("markerHeight", 8)
+                    .attr("refX", 10)
+                    .attr("refY", 4)
+                    .attr("orient", "auto")
+                    .append("polygon")
+                    .attr("points", "0 0, 12 4, 0 8")
+                    .attr("fill", color);
+            };
+
+            createMarker("arrow-default", "#cbd5e1");
+            createMarker("arrow-active", "#4f46e5"); // Indigo-600
+            createMarker("arrow-error", "#ef4444");  // Red-500
+            createMarker("arrow-success", "#10b981"); // Emerald-500
+
+            // Layers
+            svg.append("g").attr("id", "links-layer");
+            svg.append("g").attr("id", "nodes-layer");
+        }
+
+        function updateVisualization() {
+            if (!state.result || state.result.steps.length === 0) return;
+            
+            const step = state.result.steps[state.currentStepIndex];
+            const { s, t } = state;
+            const svg = d3.select("#svg-container svg");
+            
+            // Use max length to determine spacing, ensuring valid coordinates for both strings
+            const maxLength = Math.max(s.length, t.length); 
+            
+            const width = 800;
+            const charSize = 50;
+            const gap = 30;
+            const totalRowWidth = maxLength * (charSize + gap) - gap;
+            const startX = (width - totalRowWidth) / 2;
+            const rowY_S = 120;
+            const rowY_T = 380;
+
+            // Pre-calculate positions safely
+            const charPositions = [];
+            for(let i=0; i<maxLength; i++) {
+                charPositions.push({
+                    x: startX + i * (charSize + gap) + charSize/2,
+                    yS: rowY_S + charSize/2 + 10,
+                    yT: rowY_T - charSize/2 - 10
+                });
+            }
+
+            // --- Draw Nodes ---
+            const nodesLayer = svg.select("#nodes-layer");
+
+            // Function to draw a row of characters
+            const drawRow = (str, yBase, type) => {
+                const data = str.split('').map((char, i) => ({ char, id: i }));
+                
+                const groups = nodesLayer.selectAll(`g.node-${type}`)
+                    .data(data, d => `${type}-${d.id}`);
+
+                const enter = groups.enter().append("g")
+                    .attr("class", `node-${type}`)
+                    .attr("transform", d => {
+                        // Safety check for position
+                        const pos = charPositions[d.id];
+                        const x = pos ? pos.x : 0;
+                        const y = type === 's' ? rowY_S : rowY_T;
+                        return `translate(${x}, ${y})`;
+                    })
+                    .attr("opacity", 0);
+
+                enter.append("circle")
+                    .attr("r", 28)
+                    .attr("fill", "white")
+                    .attr("stroke", "#e2e8f0")
+                    .attr("stroke-width", 2)
+                    .attr("class", "transition-colors duration-300");
+
+                enter.append("text")
+                    .text(d => d.char)
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "middle")
+                    .attr("dy", "1px")
+                    .attr("class", "font-mono text-xl font-bold fill-slate-600")
+                    .style("pointer-events", "none");
+
+                // Labels (S= / T=) - Only draw once
+                if (svg.selectAll(`.label-${type}`).empty()) {
+                     svg.append("text")
+                        .attr("class", `label-${type} font-bold text-xl fill-slate-400`)
+                        .attr("x", 50)
+                        .attr("y", type === 's' ? rowY_S : rowY_T)
+                        .attr("dominant-baseline", "middle")
+                        .text(type === 's' ? "S =" : "T =");
+                }
+
+                const update = groups.merge(enter);
+                
+                update.transition().duration(300)
+                    .attr("opacity", 1)
+                    .attr("transform", d => {
+                        const pos = charPositions[d.id];
+                        const x = pos ? pos.x : 0; // Fallback to 0 if undefined
+                        const y = type === 's' ? rowY_S : rowY_T;
+                        return `translate(${x}, ${y})`;
+                    });
+
+                // Color logic
+                update.select("circle")
+                    .transition().duration(300)
+                    .attr("stroke", d => {
+                        if (d.id === step.index) {
+                            if (step.status.includes('mismatch')) return "#ef4444";
+                            if (step.status === 'match' || step.status === 'checking') return "#4f46e5";
+                        }
+                        return "#e2e8f0";
+                    })
+                    .attr("fill", d => {
+                        if (d.id === step.index) {
+                            if (step.status.includes('mismatch')) return "#fef2f2";
+                            if (step.status === 'match' || step.status === 'checking') return "#eef2ff";
+                        }
+                        return "white";
+                    });
+
+                groups.exit().transition().duration(200).attr("opacity", 0).remove();
+            };
+
+            drawRow(s, rowY_S, 's');
+            drawRow(t, rowY_T, 't');
+
+            // --- Draw Links ---
+            const linksLayer = svg.select("#links-layer");
+            const links = [];
+
+            // Existing Maps
+            Object.entries(step.sMap).forEach(([sc, tc]) => {
+                for (let i = 0; i < s.length; i++) {
+                    // Only show links for processed indices
+                    if (s[i] === sc && i <= step.index) {
+                        // Validation: Only draw if t[i] exists and position is calculated
+                        if (t[i] === tc && charPositions[i]) {
+                            const isActive = (i === step.index);
+                            links.push({
+                                id: `link-${i}`,
+                                x1: charPositions[i].x,
+                                y1: charPositions[i].yS,
+                                x2: charPositions[i].x,
+                                y2: charPositions[i].yT,
+                                color: isActive ? "#4f46e5" : "#cbd5e1",
+                                width: isActive ? 4 : 2,
+                                dashed: false,
+                                marker: isActive ? "url(#arrow-active)" : "url(#arrow-default)"
+                            });
+                        }
+                    }
+                }
+            });
+
+            // Error Link
+            if (step.status.includes('mismatch')) {
+                const i = step.index;
+                // Safety Check for undefined index access
+                if (i >= 0 && charPositions[i]) {
+                    links.push({
+                        id: `link-err-${i}`,
+                        x1: charPositions[i].x,
+                        y1: charPositions[i].yS,
+                        x2: charPositions[i].x,
+                        y2: charPositions[i].yT,
+                        color: "#ef4444",
+                        width: 4,
+                        dashed: true,
+                        marker: "url(#arrow-error)"
+                    });
+                }
+            }
+
+            const linkSelection = linksLayer.selectAll("path").data(links, d => d.id);
+
+            // Curve Generator
+            const getPath = (d) => {
+                const path = d3.path();
+                path.moveTo(d.x1, d.y1);
+                // Bezier curve for smoother connection
+                path.bezierCurveTo(d.x1, d.y1 + 60, d.x2, d.y2 - 60, d.x2, d.y2);
+                return path.toString();
+            };
+
+            // Enter
+            const linkEnter = linkSelection.enter().append("path")
+                .attr("d", d => getPath(d))
+                .attr("fill", "none")
+                .attr("stroke-width", 0)
+                .attr("stroke", d => d.color);
+
+            // Update
+            linkSelection.merge(linkEnter)
+                .transition().duration(300)
+                .attr("d", d => getPath(d))
+                .attr("stroke", d => d.color)
+                .attr("stroke-width", d => d.width)
+                .attr("stroke-dasharray", d => d.dashed ? "8,4" : "none")
+                .attr("marker-end", d => d.marker);
+
+            // Exit
+            linkSelection.exit()
+                .transition().duration(200)
+                .attr("stroke-width", 0)
+                .remove();
+
+            // Update Sidebar UI
+            updateUI(step);
+        }
+
+        function updateUI(step) {
+            // Safety check to prevent crash when result is null
+            if (!state.result) {
+                document.getElementById('step-counter').textContent = "Step 0 / 0";
+                // Reset UI elements to safe defaults if needed
+                document.getElementById('map-container').innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-slate-300 space-y-2 mt-8">
+                        <i data-lucide="map" class="w-8 h-8 opacity-50"></i>
+                        <span class="text-sm">No mappings</span>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            // 1. Step Counter
+            const total = state.result.steps.length;
+            const current = state.currentStepIndex + 1;
+            document.getElementById('step-counter').textContent = `Step ${current} / ${total}`;
+
+            // 2. Buttons state
+            document.getElementById('btn-step-back').disabled = state.currentStepIndex <= 0;
+            document.getElementById('btn-step-fwd').disabled = state.currentStepIndex >= total - 1;
+
+            // 3. Play Button Icon
+            const playBtn = document.getElementById('btn-play-pause');
+            const playIcon = playBtn.querySelector('i');
+            
+            if (state.isPlaying) {
+                playBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                playBtn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+                playBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+            } else {
+                playBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                playBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+                playBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+            }
+
+            // 4. Hash Map Sidebar
+            const mapContainer = document.getElementById('map-container');
+            const entries = Object.entries(step.sMap);
+            
+            if (entries.length === 0) {
+                mapContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-slate-300 space-y-2 mt-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+                        <span class="text-sm">No mappings</span>
+                    </div>`;
+            } else {
+                mapContainer.innerHTML = entries.map(([k, v], i) => `
+                    <div class="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-100 animate-in fade-in duration-300">
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-1">
+                                <span class="w-8 h-8 flex items-center justify-center bg-white border border-indigo-100 rounded-md font-mono font-bold text-indigo-600 shadow-sm">${k}</span>
+                                <i data-lucide="arrow-right" class="w-3 h-3 text-slate-400"></i>
+                                <span class="w-8 h-8 flex items-center justify-center bg-white border border-emerald-100 rounded-md font-mono font-bold text-emerald-600 shadow-sm">${v}</span>
+                            </div>
+                        </div>
+                        ${ (step.status === 'match' && step.sChar === k && step.index > 0) 
+                            ? `<span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 rounded-full">New</span>` 
+                            : '' }
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            }
+
+            // 5. Status Box
+            const statusBox = document.getElementById('status-box');
+            const statusIndicator = document.getElementById('status-indicator');
+            const statusMsg = document.getElementById('status-message');
+            
+            statusMsg.textContent = step.message;
+            
+            // Reset classes
+            statusBox.className = "p-5 rounded-2xl shadow-sm border bg-white border-slate-200 transition-all duration-300 relative overflow-hidden";
+            
+            if (step.status.includes('fail') || step.status.includes('mismatch')) {
+                statusIndicator.className = "absolute top-0 left-0 w-1.5 h-full bg-red-500 transition-colors duration-300";
+                statusBox.classList.add("border-red-100");
+                statusBox.style.backgroundColor = "#fef2f2"; // red-50
+                statusMsg.className = "text-sm font-medium text-red-700 leading-relaxed";
+            } else if (step.status === 'complete_success') {
+                statusIndicator.className = "absolute top-0 left-0 w-1.5 h-full bg-emerald-500 transition-colors duration-300";
+                statusBox.classList.add("border-emerald-100");
+                statusBox.style.backgroundColor = "#ecfdf5"; // emerald-50
+                statusMsg.className = "text-sm font-medium text-emerald-700 leading-relaxed";
+            } else {
+                statusIndicator.className = "absolute top-0 left-0 w-1.5 h-full bg-indigo-500 transition-colors duration-300";
+                statusMsg.className = "text-sm font-medium text-slate-700 leading-relaxed";
+            }
+        }
+
+        /**
+         * EVENT HANDLERS
+         */
+        function handleInput() {
+            const sVal = document.getElementById('input-s').value.trim();
+            const tVal = document.getElementById('input-t').value.trim();
+
+            state.s = sVal;
+            state.t = tVal;
+            
+            // Reset Playback
+            stopPlayback();
+            
+            // Run Algo
+            state.result = generateSteps(sVal, tVal);
+            state.currentStepIndex = 0;
+            
+            initVisualization();
+            updateVisualization();
+        }
+
+        function stopPlayback() {
+            state.isPlaying = false;
+            if (state.timer) clearInterval(state.timer);
+            updateUI(state.result ? state.result.steps[state.currentStepIndex] : {sMap:{}, status:'', message:''});
+        }
+
+        function togglePlay() {
+            if (!state.result) return;
+            
+            state.isPlaying = !state.isPlaying;
+            
+            if (state.isPlaying) {
+                // If finished, restart
+                if (state.currentStepIndex >= state.result.steps.length - 1) {
+                    state.currentStepIndex = 0;
+                }
+                
+                state.timer = setInterval(() => {
+                    if (state.currentStepIndex < state.result.steps.length - 1) {
+                        state.currentStepIndex++;
+                        updateVisualization();
+                    } else {
+                        stopPlayback();
+                    }
+                }, state.speed);
+                
+                // Immediate UI update for icon
+                updateUI(state.result.steps[state.currentStepIndex]);
+            } else {
+                stopPlayback();
+            }
+        }
+
+        function step(dir) {
+            stopPlayback();
+            if (!state.result) return;
+            
+            const newIndex = state.currentStepIndex + dir;
+            if (newIndex >= 0 && newIndex < state.result.steps.length) {
+                state.currentStepIndex = newIndex;
+                updateVisualization();
+            }
+        }
+
+        /**
+         * INITIALIZATION
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            
+            const sInput = document.getElementById('input-s');
+            const tInput = document.getElementById('input-t');
+            
+            // Debounced input handler
+            let debounceTimer;
+            const onInput = () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(handleInput, 300);
+            };
+            
+            sInput.addEventListener('input', onInput);
+            tInput.addEventListener('input', onInput);
+            
+            document.getElementById('btn-play-pause').addEventListener('click', togglePlay);
+            document.getElementById('btn-step-fwd').addEventListener('click', () => step(1));
+            document.getElementById('btn-step-back').addEventListener('click', () => step(-1));
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                state.currentStepIndex = 0;
+                stopPlayback();
+                updateVisualization();
+            });
+            
+            // Speed Slider
+            document.getElementById('speed-slider').addEventListener('input', (e) => {
+                state.speed = Number(e.target.value);
+                if (state.isPlaying) {
+                    // Restart timer with new speed
+                    togglePlay(); 
+                    togglePlay();
+                }
+            });
+            
+            // Presets
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.getElementById('input-s').value = btn.dataset.s;
+                    document.getElementById('input-t').value = btn.dataset.t;
+                    handleInput();
+                });
+            });
+
+            // Initial Run
+            handleInput();
+        });
+
+    </script>
+</body>
+</html>
