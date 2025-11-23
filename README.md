@@ -1,4 +1,3 @@
-```markdown
 # LeetCode Solutions
 
 This repository serves as a personal collection of solutions to various LeetCode problems, primarily implemented using HTML and JavaScript. Each problem's solution is encapsulated within its own HTML file, making them easy to review and run directly in a web browser.
@@ -40,4 +39,3 @@ To explore the solutions in this repository:
 
 *   **HTML**: Used for structuring the problem descriptions, solution interfaces, and embedding JavaScript.
 *   **JavaScript**: The primary language for implementing the algorithms and logic for each LeetCode problem.
-```
