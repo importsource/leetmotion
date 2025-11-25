@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeetMotion - Valid Sudoku Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* slate-900 */
+            color: #e2e8f0; /* slate-200 */
+        }
+        
+        .code-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
+
+        .cell {
+            transition: all 0.2s ease;
+        }
+        
+        .highlight-line {
+            background-color: #374151; /* slate-700 */
+            border-left: 4px solid #eab308; /* yellow-500 */
+        }
+
+        /* Sudoku Grid Borders */
+        .sudoku-grid {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 1px;
+            background-color: #475569; /* slate-600 for borders */
+            border: 2px solid #475569;
+        }
+        
+        .sudoku-cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            background-color: #1e293b; /* slate-800 */
+            position: relative;
+        }
+
+        /* Thicker borders for 3x3 boxes */
+        .sudoku-cell:nth-child(3n) {
+            border-right: 2px solid #94a3b8;
+        }
+        .sudoku-cell:nth-child(9n) {
+            border-right: none;
+        }
+        .sudoku-cell:nth-child(n+19):nth-child(-n+27),
+        .sudoku-cell:nth-child(n+46):nth-child(-n+54) {
+            border-bottom: 2px solid #94a3b8;
+        }
+
+        /* Animation classes */
+        .cell-active {
+            background-color: #eab308 !important; /* yellow-500 */
+            color: #000 !important;
+            font-weight: bold;
+            transform: scale(1.1);
+            z-index: 10;
+            box-shadow: 0 0 15px rgba(234, 179, 8, 0.5);
+        }
+
+        .cell-check-row {
+            background-color: rgba(59, 130, 246, 0.2) !important; /* blue-500/20 */
+        }
+        
+        .cell-check-col {
+            background-color: rgba(59, 130, 246, 0.2) !important;
+        }
+        
+        .cell-check-box {
+            background-color: rgba(168, 85, 247, 0.2) !important; /* purple-500/20 */
+        }
+
+        .cell-error {
+            background-color: #ef4444 !important; /* red-500 */
+            color: white !important;
+        }
+        
+        .cell-processed {
+            color: #94a3b8;
+        }
+
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 p-4 flex justify-between items-center shadow-md z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded flex items-center justify-center text-slate-900 font-bold text-lg">
+                L
+            </div>
+            <h1 class="text-xl font-bold tracking-tight text-white">LeetMotion <span class="text-slate-400 font-normal text-sm ml-2">Valid Sudoku (LC 36)</span></h1>
+        </div>
+        <a href="https://importsource.github.io/leetmotion/" target="_blank" class="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2">
+            <i class="fas fa-home"></i> Home Page
+        </a>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        
+        <!-- Left Panel: Board & Controls -->
+        <section class="flex-1 flex flex-col p-6 gap-6 overflow-y-auto lg:overflow-hidden bg-slate-900">
+            
+            <!-- Controls Toolbar -->
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-2">
+                    <button id="btn-reset" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all active:scale-95 text-sm font-medium">
+                        <i class="fas fa-rotate-left mr-2"></i>Reset
+                    </button>
+                    <button id="btn-play" class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-all active:scale-95 text-sm font-medium w-24">
+                        <i class="fas fa-play mr-2"></i>Play
+                    </button>
+                    <button id="btn-step" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all active:scale-95 text-sm font-medium">
+                        <i class="fas fa-step-forward mr-2"></i>Step
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-4">
+                     <div class="flex flex-col gap-1">
+                        <label class="text-xs text-slate-400 uppercase font-bold tracking-wider">Speed</label>
+                        <input type="range" id="speed-range" min="10" max="1000" value="500" class="w-32 accent-blue-500 cursor-pointer">
+                    </div>
+                    <div class="h-8 w-[1px] bg-slate-600"></div>
+                     <select id="board-select" class="bg-slate-700 text-sm text-white px-3 py-2 rounded-lg border border-slate-600 focus:outline-none focus:border-blue-500">
+                        <option value="valid">Valid Board</option>
+                        <option value="row-error">Row Conflict</option>
+                        <option value="col-error">Col Conflict</option>
+                        <option value="box-error">Box Conflict</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Visualization Area -->
+            <div class="flex-1 flex flex-col items-center justify-center min-h-[400px]">
+                <div class="relative p-1 bg-slate-700 rounded-lg shadow-2xl">
+                    <div id="sudoku-board" class="sudoku-grid w-[360px] h-[360px] sm:w-[450px] sm:h-[450px]">
+                        <!-- Cells generated by JS -->
+                    </div>
+                </div>
+                
+                <!-- Legend -->
+                <div class="mt-6 flex gap-6 text-xs text-slate-400">
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-yellow-500 rounded-sm"></div> Current</div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-blue-500 opacity-50 rounded-sm"></div> Row/Col Check</div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-purple-500 opacity-50 rounded-sm"></div> Box Check</div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-red-500 rounded-sm"></div> Error</div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Right Panel: Code & Logs -->
+        <section class="w-full lg:w-[600px] flex flex-col border-l border-slate-700 bg-slate-950">
+            
+            <!-- Info / Status Bar -->
+            <div class="h-16 border-b border-slate-800 flex items-center px-6 bg-slate-900/50 backdrop-blur">
+                <div id="status-indicator" class="w-2.5 h-2.5 rounded-full bg-slate-500 mr-3 animate-pulse"></div>
+                <div id="status-text" class="text-sm font-medium text-slate-300 truncate">Ready to start...</div>
+            </div>
+
+            <!-- Code Block -->
+            <div class="flex-1 overflow-y-auto relative bg-[#0d1117]">
+                <div class="absolute top-0 left-0 min-h-full w-12 bg-slate-900 border-r border-slate-800 text-slate-600 text-xs text-right py-4 pr-3 select-none code-font" id="line-numbers">
+                    <!-- Line numbers generated by JS -->
+                </div>
+                <pre class="pl-4 py-4 text-xs sm:text-sm text-slate-300 code-font leading-6 tab-4 overflow-x-auto" id="code-content"></pre>
+            </div>
+
+            <!-- Tracking / Sets View -->
+            <div class="h-48 border-t border-slate-800 bg-slate-900 p-4 overflow-y-auto">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Internal State</h3>
+                <div class="grid grid-cols-3 gap-4 text-xs">
+                    <div class="bg-slate-800 rounded p-2 border border-slate-700">
+                        <div class="text-blue-400 font-bold mb-1">Row Sets</div>
+                        <div id="row-state" class="text-slate-400 font-mono h-24 overflow-y-auto">...</div>
+                    </div>
+                    <div class="bg-slate-800 rounded p-2 border border-slate-700">
+                        <div class="text-blue-400 font-bold mb-1">Col Sets</div>
+                        <div id="col-state" class="text-slate-400 font-mono h-24 overflow-y-auto">...</div>
+                    </div>
+                    <div class="bg-slate-800 rounded p-2 border border-slate-700">
+                        <div class="text-purple-400 font-bold mb-1">Box Sets</div>
+                        <div id="box-state" class="text-slate-400 font-mono h-24 overflow-y-auto">...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- Data & Configuration ---
+        const JAVA_CODE = `class Solution {
+    public boolean isValidSudoku(char[][] board) {
+
+        // Create 9 sets for rows.
+        Set<Character>[] rows = new HashSet[9];
+
+        // Create 9 sets for columns.
+        Set<Character>[] cols = new HashSet[9];
+
+        // Create 9 sets for 3x3 boxes.
+        Set<Character>[] boxes = new HashSet[9];
+
+        // Initialize the sets.
+        for (int i = 0; i < 9; i++) {
+            rows[i] = new HashSet<>();
+            cols[i] = new HashSet<>();
+            boxes[i] = new HashSet<>();
+        }
+
+        // Loop through every cell in the 9x9 board.
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+
+                // Read the current character from board.
+                char c = board[i][j];
+
+                // Skip empty cells.
+                if (c == '.') {
+                    continue;
+                }
+
+                // Calculate box index:
+                int boxIndex = (i / 3) * 3 + (j / 3);
+
+                // Check for duplicates in row.
+                if (rows[i].contains(c)) {
+                    return false;
+                }
+
+                // Check for duplicates in column.
+                if (cols[j].contains(c)) {
+                    return false;
+                }
+
+                // Check for duplicates in box.
+                if (boxes[boxIndex].contains(c)) {
+                    return false;
+                }
+
+                // No conflict found, add to sets.
+                rows[i].add(c);
+                cols[j].add(c);
+                boxes[boxIndex].add(c);
+            }
+        }
+
+        // If no duplicates were found anywhere, the board is valid.
+        return true;
+    }
+}`;
+
+        // Boards
+        const BOARDS = {
+            'valid': [
+                ["5","3",".",".","7",".",".",".","."],
+                ["6",".",".","1","9","5",".",".","."],
+                [".","9","8",".",".",".",".","6","."],
+                ["8",".",".",".","6",".",".",".","3"],
+                ["4",".",".","8",".","3",".",".","1"],
+                ["7",".",".",".","2",".",".",".","6"],
+                [".","6",".",".",".",".","2","8","."],
+                [".",".",".","4","1","9",".",".","5"],
+                [".",".",".",".","8",".",".","7","9"]
+            ],
+            'row-error': [
+                ["5","3",".",".","7",".",".",".","."],
+                ["6",".",".","1","9","5",".",".","."],
+                [".","9","8",".",".",".",".","6","."],
+                ["8",".",".",".","6",".",".",".","3"],
+                ["4",".",".","8",".","3",".",".","1"],
+                ["7",".",".",".","2",".",".",".","6"],
+                [".","6",".",".",".",".","2","8","."],
+                [".",".",".","4","1","9",".",".","5"],
+                ["5",".",".",".","8",".",".","7","9"] // Error: 5 at start of row 8 (index 8), conflicts with row 0? No, row check is within same row. 
+                // Wait, row error means TWO SAME numbers in ONE row.
+                // Let's modify row 0:
+            ],
+            'col-error': [],
+            'box-error': []
+        };
+
+        // Fix logic for error boards
+        BOARDS['row-error'] = JSON.parse(JSON.stringify(BOARDS['valid']));
+        BOARDS['row-error'][0][8] = "5"; // 5 repeats in row 0
+
+        BOARDS['col-error'] = JSON.parse(JSON.stringify(BOARDS['valid']));
+        BOARDS['col-error'][8][0] = "5"; // 5 repeats in col 0 (at 0,0 and 8,0)
+
+        BOARDS['box-error'] = JSON.parse(JSON.stringify(BOARDS['valid']));
+        BOARDS['box-error'][1][1] = "5"; // 5 repeats in top-left box (at 0,0 and 1,1)
+
+
+        // --- State Management ---
+        let currentBoard = BOARDS['valid'];
+        let isPlaying = false;
+        let speed = 500; // ms
+        let timer = null;
+        let generator = null;
+        let setsState = { rows: [], cols: [], boxes: [] }; // visual caching
+        
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            setupCodeView();
+            setupBoard();
+            setupControls();
+            reset();
+        });
+
+        function setupCodeView() {
+            const codeEl = document.getElementById('code-content');
+            const lineNumsEl = document.getElementById('line-numbers');
+            const lines = JAVA_CODE.split('\n');
+            
+            codeEl.innerHTML = lines.map((line, idx) => 
+                `<div id="line-${idx+1}" class="w-full px-2">${escapeHtml(line)}</div>`
+            ).join('');
+
+            lineNumsEl.innerHTML = lines.map((_, idx) => 
+                `<div>${idx+1}</div>`
+            ).join('');
+        }
+
+        function setupBoard() {
+            const boardEl = document.getElementById('sudoku-board');
+            boardEl.innerHTML = '';
+            
+            for(let i=0; i<9; i++) {
+                for(let j=0; j<9; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'sudoku-cell text-slate-300 font-medium';
+                    cell.id = `cell-${i}-${j}`;
+                    cell.textContent = currentBoard[i][j] === '.' ? '' : currentBoard[i][j];
+                    if (currentBoard[i][j] !== '.') cell.classList.add('text-white');
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function setupControls() {
+            document.getElementById('btn-play').addEventListener('click', togglePlay);
+            document.getElementById('btn-step').addEventListener('click', step);
+            document.getElementById('btn-reset').addEventListener('click', reset);
+            
+            document.getElementById('speed-range').addEventListener('input', (e) => {
+                speed = 1010 - e.target.value; // Invert: High value = Low delay
+                if(isPlaying) {
+                    clearInterval(timer);
+                    timer = setInterval(step, speed);
+                }
+            });
+
+            document.getElementById('board-select').addEventListener('change', (e) => {
+                currentBoard = BOARDS[e.target.value];
+                reset();
+            });
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // --- Logic & Generator ---
+
+        function* algorithm() {
+            // Init sets
+            let rows = Array.from({length: 9}, () => new Set());
+            let cols = Array.from({length: 9}, () => new Set());
+            let boxes = Array.from({length: 9}, () => new Set());
+            
+            updateSetsVisuals(rows, cols, boxes);
+
+            yield { line: 5, msg: "Initialize sets for Rows.", hl: [5] };
+            yield { line: 8, msg: "Initialize sets for Columns.", hl: [8] };
+            yield { line: 11, msg: "Initialize sets for Boxes.", hl: [11] };
+            
+            yield { line: 14, msg: "Instantiate HashSets for each index.", hl: [14, 15, 16, 17, 18] };
+
+            for (let i = 0; i < 9; i++) {
+                yield { line: 21, msg: `Outer Loop: Row i = ${i}`, hl: [21] };
+                
+                for (let j = 0; j < 9; j++) {
+                    yield { line: 22, msg: `Inner Loop: Column j = ${j}`, hl: [22] };
+                    
+                    const char = currentBoard[i][j];
+                    highlightCell(i, j, 'active');
+                    yield { line: 25, msg: `Read board[${i}][${j}] = '${char}'`, hl: [25] };
+
+                    if (char === '.') {
+                        yield { line: 28, msg: "Cell is empty ('.'), continuing...", hl: [28, 29] };
+                        highlightCell(i, j, 'processed');
+                        continue; 
+                    }
+
+                    const boxIndex = Math.floor(i / 3) * 3 + Math.floor(j / 3);
+                    yield { line: 33, msg: `Calculate boxIndex: (${i}/3)*3 + (${j}/3) = ${boxIndex}`, hl: [33] };
+
+                    // Check Row
+                    highlightRow(i);
+                    yield { line: 36, msg: `Check if Row ${i} contains '${char}'`, hl: [36] };
+                    if (rows[i].has(char)) {
+                         highlightCell(i, j, 'error');
+                         yield { line: 37, msg: `DUPLICATE FOUND! '${char}' is already in Row ${i}.`, hl: [37], status: 'error' };
+                         yield { line: 38, msg: "Return false (Invalid Board)", hl: [38], status: 'error' };
+                         return false;
+                    }
+                    clearHighlights();
+                    highlightCell(i, j, 'active');
+
+                    // Check Col
+                    highlightCol(j);
+                    yield { line: 41, msg: `Check if Column ${j} contains '${char}'`, hl: [41] };
+                    if (cols[j].has(char)) {
+                         highlightCell(i, j, 'error');
+                         yield { line: 42, msg: `DUPLICATE FOUND! '${char}' is already in Column ${j}.`, hl: [42], status: 'error' };
+                         yield { line: 43, msg: "Return false (Invalid Board)", hl: [43], status: 'error' };
+                         return false;
+                    }
+                    clearHighlights();
+                    highlightCell(i, j, 'active');
+
+                    // Check Box
+                    highlightBox(boxIndex);
+                    yield { line: 46, msg: `Check if Box ${boxIndex} contains '${char}'`, hl: [46] };
+                    if (boxes[boxIndex].has(char)) {
+                         highlightCell(i, j, 'error');
+                         yield { line: 47, msg: `DUPLICATE FOUND! '${char}' is already in Box ${boxIndex}.`, hl: [47], status: 'error' };
+                         yield { line: 48, msg: "Return false (Invalid Board)", hl: [48], status: 'error' };
+                         return false;
+                    }
+                    clearHighlights();
+                    highlightCell(i, j, 'active');
+
+                    // Add
+                    rows[i].add(char);
+                    cols[j].add(char);
+                    boxes[boxIndex].add(char);
+                    updateSetsVisuals(rows, cols, boxes);
+                    
+                    yield { line: 51, msg: `Add '${char}' to Row ${i}, Col ${j}, Box ${boxIndex} sets.`, hl: [51, 52, 53] };
+                    
+                    highlightCell(i, j, 'processed'); // Mark done
+                }
+            }
+
+            yield { line: 58, msg: "Loops finished. No duplicates found.", hl: [58] };
+            yield { line: 59, msg: "Return true (Valid Board)", hl: [59], status: 'success' };
+            return true;
+        }
+
+
+        // --- UI Updates ---
+
+        function togglePlay() {
+            const btn = document.getElementById('btn-play');
+            if (isPlaying) {
+                isPlaying = false;
+                clearInterval(timer);
+                btn.innerHTML = '<i class="fas fa-play mr-2"></i>Play';
+                btn.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
+                btn.classList.add('bg-green-600', 'hover:bg-green-500');
+            } else {
+                isPlaying = true;
+                timer = setInterval(step, speed);
+                btn.innerHTML = '<i class="fas fa-pause mr-2"></i>Pause';
+                btn.classList.remove('bg-green-600', 'hover:bg-green-500');
+                btn.classList.add('bg-yellow-600', 'hover:bg-yellow-500');
+            }
+        }
+
+        function reset() {
+            isPlaying = false;
+            clearInterval(timer);
+            const btn = document.getElementById('btn-play');
+            btn.innerHTML = '<i class="fas fa-play mr-2"></i>Play';
+            btn.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
+            btn.classList.add('bg-green-600', 'hover:bg-green-500');
+
+            setupBoard();
+            
+            // Clear highlights
+            document.querySelectorAll('.highlight-line').forEach(el => el.classList.remove('highlight-line'));
+            document.getElementById('status-text').textContent = "Ready to start...";
+            document.getElementById('status-indicator').className = "w-2.5 h-2.5 rounded-full bg-slate-500 mr-3 animate-pulse";
+            
+            updateSetsVisuals([], [], []); // clear sets view
+
+            generator = algorithm();
+        }
+
+        function step() {
+            if (!generator) return;
+
+            const res = generator.next();
+            
+            if (res.done) {
+                isPlaying = false;
+                clearInterval(timer);
+                const btn = document.getElementById('btn-play');
+                btn.innerHTML = '<i class="fas fa-play mr-2"></i>Play';
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                return;
+            }
+
+            const state = res.value;
+            
+            // Status update
+            const statusEl = document.getElementById('status-text');
+            statusEl.textContent = state.msg;
+            
+            const indEl = document.getElementById('status-indicator');
+            if(state.status === 'error') indEl.className = "w-2.5 h-2.5 rounded-full bg-red-500 mr-3 animate-bounce";
+            else if(state.status === 'success') indEl.className = "w-2.5 h-2.5 rounded-full bg-green-500 mr-3";
+            else indEl.className = "w-2.5 h-2.5 rounded-full bg-yellow-500 mr-3 animate-pulse";
+
+            // Code highlight
+            document.querySelectorAll('.highlight-line').forEach(el => el.classList.remove('highlight-line'));
+            if (state.hl) {
+                state.hl.forEach(lineNum => {
+                    const el = document.getElementById(`line-${lineNum}`);
+                    if (el) {
+                        el.classList.add('highlight-line');
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                });
+            }
+        }
+
+        // --- Visual Helpers ---
+
+        function highlightCell(i, j, type) {
+            // Remove active from all
+            document.querySelectorAll('.cell-active').forEach(el => el.classList.remove('cell-active'));
+            
+            const cell = document.getElementById(`cell-${i}-${j}`);
+            if (!cell) return;
+
+            if (type === 'active') {
+                cell.classList.add('cell-active');
+            } else if (type === 'error') {
+                cell.classList.add('cell-error');
+            } else if (type === 'processed') {
+                // optional: fade out or mark checked
+                // cell.classList.add('cell-processed');
+            }
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.cell-check-row').forEach(el => el.classList.remove('cell-check-row'));
+            document.querySelectorAll('.cell-check-col').forEach(el => el.classList.remove('cell-check-col'));
+            document.querySelectorAll('.cell-check-box').forEach(el => el.classList.remove('cell-check-box'));
+        }
+
+        function highlightRow(rowIdx) {
+            clearHighlights();
+            for(let j=0; j<9; j++) {
+                document.getElementById(`cell-${rowIdx}-${j}`).classList.add('cell-check-row');
+            }
+        }
+
+        function highlightCol(colIdx) {
+            clearHighlights();
+            for(let i=0; i<9; i++) {
+                document.getElementById(`cell-${i}-${colIdx}`).classList.add('cell-check-col');
+            }
+        }
+
+        function highlightBox(boxIdx) {
+            clearHighlights();
+            // boxIdx 0..8
+            // Start row = (boxIdx / 3) * 3
+            // Start col = (boxIdx % 3) * 3
+            const startRow = Math.floor(boxIdx / 3) * 3;
+            const startCol = (boxIdx % 3) * 3;
+            
+            for(let r=0; r<3; r++) {
+                for(let c=0; c<3; c++) {
+                    document.getElementById(`cell-${startRow+r}-${startCol+c}`).classList.add('cell-check-box');
+                }
+            }
+        }
+
+        function updateSetsVisuals(rows, cols, boxes) {
+            // Helper to render set content
+            const renderSetArray = (arr) => arr.map((set, idx) => 
+                `<div class="mb-1"><span class="text-slate-500 font-bold mr-2">${idx}:</span>[${Array.from(set).join(', ')}]</div>`
+            ).join('');
+
+            // Handle empty initial state or array of sets
+            if(Array.isArray(rows) && rows.length > 0 && rows[0] instanceof Set) {
+                 document.getElementById('row-state').innerHTML = renderSetArray(rows);
+                 document.getElementById('col-state').innerHTML = renderSetArray(cols);
+                 document.getElementById('box-state').innerHTML = renderSetArray(boxes);
+            } else {
+                 document.getElementById('row-state').innerHTML = '<span class="text-slate-600 italic">Empty</span>';
+                 document.getElementById('col-state').innerHTML = '<span class="text-slate-600 italic">Empty</span>';
+                 document.getElementById('box-state').innerHTML = '<span class="text-slate-600 italic">Empty</span>';
+            }
+        }
+
+    </script>
+</body>
+</html>
