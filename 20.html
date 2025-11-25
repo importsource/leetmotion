@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeetCode 20: Valid Parentheses - Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0; /* Slate 200 */
+            overflow: hidden; 
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d1117; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #30363d; 
+            border-radius: 5px;
+            border: 2px solid #0d1117;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #484f58; 
+        }
+
+        /* Stack Animation */
+        .stack-item {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .stack-item.popping {
+            animation: slideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-20px) scale(0.9); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes slideOut {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 0; transform: translateY(-20px) scale(0.9); }
+        }
+
+        /* String Char Highlight */
+        .char-box {
+            transition: all 0.3s ease;
+        }
+        .char-active {
+            background-color: #38bdf8;
+            color: #0f172a;
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+            border-color: #38bdf8;
+        }
+
+        .visualization-container {
+            height: calc(100vh - 64px); /* Header offset */
+        }
+
+        /* Improved Code Block Styling */
+        .code-container {
+            font-family: 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            background-color: #0d1117; 
+            overflow: auto;
+            height: 100%;
+        }
+        
+        .code-wrapper {
+            display: inline-block;
+            min-width: 100%;
+            padding-bottom: 2rem;
+        }
+
+        .code-line {
+            display: flex;
+            padding: 0 1rem;
+            min-width: 100%; 
+            border-left: 3px solid transparent;
+        }
+
+        .code-line:hover {
+            background-color: #161b22;
+        }
+
+        .line-number {
+            display: inline-block;
+            width: 30px;
+            min-width: 30px;
+            text-align: right;
+            margin-right: 1.5rem;
+            color: #6e7681;
+            user-select: none;
+        }
+
+        .code-content {
+            white-space: pre;
+            color: #c9d1d9;
+            font-variant-ligatures: none;
+        }
+
+        /* Syntax Highlighting Colors */
+        .syntax-keyword { color: #ff7b72; } /* Red/Pink */
+        .syntax-type { color: #d2a8ff; } /* Purple */
+        .syntax-string { color: #a5d6ff; } /* Light Blue */
+        .syntax-comment { color: #8b949e; font-style: italic; } /* Gray */
+        .syntax-method { color: #d2a8ff; } /* Purple */
+        .syntax-char { color: #79c0ff; } /* Blue */
+
+        /* Active Line */
+        .active-line {
+            background-color: #362803 !important; /* Subtle yellow/brown mix for dark mode visibility */
+            border-left-color: #d29922; /* Gold border */
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen text-slate-200 bg-slate-900">
+
+    <!-- Header -->
+    <header class="h-16 border-b border-slate-700 bg-slate-900 flex items-center justify-between px-6 shrink-0 z-10 shadow-md">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600 w-8 h-8 rounded flex items-center justify-center font-bold text-white">L</div>
+            <h1 class="text-lg font-bold tracking-wide">Valid Parentheses <span class="text-slate-500 text-sm font-normal ml-2">LeetCode 20</span></h1>
+        </div>
+        <div class="flex items-center gap-4">
+             <a href="https://importsource.github.io/leetmotion/" target="_blank" class="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-slate-800">
+                <span>More Visualizations</span>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex overflow-hidden visualization-container">
+        
+        <!-- Left Panel: Visualization & Controls -->
+        <div class="w-1/2 flex flex-col border-r border-slate-700 bg-slate-900">
+            
+            <!-- Controls Area -->
+            <div class="p-6 border-b border-slate-700 bg-slate-800/50">
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="inputString" value="()[]{}" placeholder="Enter brackets..." 
+                        class="bg-slate-950 border border-slate-700 text-white px-4 py-2 rounded flex-1 font-mono focus:outline-none focus:border-blue-500 tracking-widest text-center"
+                        maxlength="15">
+                    <button id="btnVisualize" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded font-semibold transition-colors shadow-lg shadow-blue-900/20">
+                        Visualize
+                    </button>
+                </div>
+                
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-2">
+                        <button id="btnPrev" class="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition" title="Previous Step">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+                        </button>
+                        <button id="btnPlay" class="p-2 rounded bg-slate-700 hover:bg-slate-600 text-white transition shadow-sm" title="Play/Pause">
+                            <svg id="iconPlay" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path d="M8 5v14l11-7z"/></svg>
+                            <svg id="iconPause" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 hidden"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                        </button>
+                        <button id="btnNext" class="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition" title="Next Step">
+                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+                        </button>
+                         <button id="btnReset" class="p-2 rounded hover:bg-slate-700 text-red-400 hover:text-red-300 transition" title="Reset">
+                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                        </button>
+                    </div>
+                    
+                    <div class="flex items-center gap-3 bg-slate-900 px-3 py-1 rounded-full border border-slate-700">
+                        <span class="text-xs text-slate-400 uppercase font-bold">Speed</span>
+                        <input type="range" id="rangeSpeed" min="1" max="10" value="5" class="w-24 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+                </div>
+
+                <div class="mt-4 bg-slate-950 rounded-lg p-3 border border-slate-700 h-16 flex items-center justify-center text-center">
+                    <p id="statusText" class="text-slate-300 text-sm font-medium">Ready to start.</p>
+                </div>
+            </div>
+
+            <!-- Visualization Area -->
+            <div class="flex-1 p-6 flex flex-col relative bg-slate-900/50">
+                
+                <!-- String Array -->
+                <div class="mb-12">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Input String</h3>
+                    <div id="stringContainer" class="flex flex-wrap gap-2 justify-center min-h-[50px]">
+                        <!-- Dynamic String Content -->
+                    </div>
+                </div>
+
+                <!-- Main Work Area -->
+                <div class="flex-1 flex gap-8 justify-center items-end pb-8">
+                    
+                    <!-- Stack Viz -->
+                    <div class="flex flex-col items-center">
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Stack</h3>
+                        <div class="relative w-32 h-64 border-x-4 border-b-4 border-slate-600 rounded-b-lg bg-slate-800/30 backdrop-blur-sm shadow-inner flex flex-col-reverse p-2 gap-1 overflow-hidden" id="stackContainer">
+                            <!-- Stack Items -->
+                        </div>
+                         <div class="mt-2 text-xs text-slate-500">Top is top</div>
+                    </div>
+
+                    <!-- Variables Box -->
+                    <div class="w-48 self-center mb-8">
+                         <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Current Variables</h3>
+                         <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 shadow-xl">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-mono text-pink-400">c</span>
+                                <span id="varC" class="font-mono text-white text-lg bg-slate-900 px-2 rounded min-w-[30px] text-center">-</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="font-mono text-purple-400">top</span>
+                                <span id="varTop" class="font-mono text-white text-lg bg-slate-900 px-2 rounded min-w-[30px] text-center">-</span>
+                            </div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Code -->
+        <div class="w-1/2 flex flex-col h-full overflow-hidden border-l border-slate-800 shadow-2xl relative">
+            <div class="p-1 shrink-0 bg-[#0d1117] border-b border-slate-800 z-10">
+                <div class="flex items-center gap-2 px-3 py-2">
+                    <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                    <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span class="ml-2 text-xs text-slate-400 font-mono opacity-80">Solution.java</span>
+                </div>
+            </div>
+            
+            <div class="code-container" id="codeContainer">
+                <!-- Code injected here -->
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Code Data ---
+        const JAVA_CODE = `class Solution {
+    public boolean isValid(String s) {
+
+        // Use a stack to store opening brackets.
+        // When we meet a closing bracket, we will pop from the stack
+        // and check if it matches the correct type.
+        Stack<Character> stack = new Stack<>();
+
+        // Loop through each character in the string.
+        // We inspect the characters one by one to ensure matching order.
+        for (char c : s.toCharArray()) {
+
+            // If it's one of the opening brackets,
+            // we push it onto the stack.
+            if (c == '(' || c == '{' || c == '[') {
+                stack.push(c);
+            } else {
+                // If stack is empty, it means we found a closing bracket
+                // but there was no opening bracket before it -> invalid.
+                if (stack.isEmpty()) {
+                    return false;
+                }
+
+                // Pop the last opening bracket we saw.
+                char top = stack.pop();
+
+                // Check if the popped bracket matches the current closing bracket.
+                // For example: '(' must match ')', otherwise it's invalid.
+                if (c == ')' && top != '(') {
+                    return false;
+                }
+                if (c == '}' && top != '{') {
+                    return false;
+                }
+                if (c == ']' && top != '[') {
+                    return false;
+                }
+            }
+        }
+
+        // If the stack is empty at the end, all brackets were matched.
+        // If not empty, there are extra opening brackets -> invalid.
+        return stack.isEmpty();
+    }
+}`;
+
+        // --- State Management ---
+        let state = {
+            input: "([{}])",
+            steps: [],
+            currentStep: 0,
+            isPlaying: false,
+            speed: 1000,
+            timer: null
+        };
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderCode();
+            initVisualizer();
+            
+            // Event Listeners
+            document.getElementById('btnVisualize').addEventListener('click', initVisualizer);
+            document.getElementById('btnNext').addEventListener('click', () => { pause(); nextStep(); });
+            document.getElementById('btnPrev').addEventListener('click', () => { pause(); prevStep(); });
+            document.getElementById('btnPlay').addEventListener('click', togglePlay);
+            document.getElementById('btnReset').addEventListener('click', () => { pause(); reset(); });
+            document.getElementById('rangeSpeed').addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                state.speed = 2000 - ((val - 1) * 200); 
+                if (state.speed < 100) state.speed = 100;
+            });
+        });
+
+        function renderCode() {
+            const container = document.getElementById('codeContainer');
+            const lines = JAVA_CODE.split('\n');
+            
+            // Create wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-wrapper';
+            
+            lines.forEach((line, index) => {
+                const lineNum = index + 1;
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'code-line';
+                lineDiv.id = `line-${lineNum}`;
+                
+                // Syntax Highlighting (Primitive but cleaner)
+                // We handle comments first to avoid highlighting keywords inside them
+                let styledLine = line;
+                
+                const commentRegex = /(\/\/.*)/;
+                const matchComment = line.match(commentRegex);
+                let commentPart = '';
+                let codePart = line;
+
+                if (matchComment) {
+                    commentPart = matchComment[0];
+                    codePart = line.substring(0, matchComment.index);
+                }
+
+                // Highlight code part
+                codePart = codePart
+                    .replace(/</g, '&lt;').replace(/>/g, '&gt;') // Escape HTML
+                    .replace(/\b(class|public|boolean|if|else|return|for|new)\b/g, '<span class="syntax-keyword">$1</span>')
+                    .replace(/\b(Stack|Character|String|char)\b/g, '<span class="syntax-type">$1</span>')
+                    .replace(/'([^']+)'/g, '<span class="syntax-char">\'$1\'</span>');
+
+                // Reassemble
+                styledLine = codePart;
+                if (commentPart) {
+                    styledLine += `<span class="syntax-comment">${commentPart}</span>`;
+                }
+
+                lineDiv.innerHTML = `
+                    <span class="line-number">${lineNum}</span>
+                    <span class="code-content">${styledLine}</span>
+                `;
+                
+                wrapper.appendChild(lineDiv);
+            });
+            
+            container.appendChild(wrapper);
+        }
+
+        // --- Logic Simulation ---
+        function generateSteps(s) {
+            const steps = [];
+            const stack = []; // Simulation stack
+            
+            // Initial State
+            steps.push({ 
+                line: 7, 
+                stack: [...stack], 
+                index: -1, 
+                desc: "Initialize an empty Stack.", 
+                vars: { c: '-', top: '-' },
+                highlight: []
+            });
+
+            for (let i = 0; i < s.length; i++) {
+                const c = s[i];
+                
+                // For loop start
+                steps.push({ 
+                    line: 11, 
+                    stack: [...stack], 
+                    index: i, 
+                    desc: `Loop: Process character '${c}' at index ${i}.`, 
+                    vars: { c: c, top: '-' },
+                    highlight: [i]
+                });
+
+                // Check open bracket
+                steps.push({ 
+                    line: 15, 
+                    stack: [...stack], 
+                    index: i, 
+                    desc: `Check if '${c}' is an opening bracket.`, 
+                    vars: { c: c, top: '-' },
+                    highlight: [i]
+                });
+
+                if (c === '(' || c === '{' || c === '[') {
+                    stack.push(c);
+                    steps.push({ 
+                        line: 16, 
+                        stack: [...stack], 
+                        index: i, 
+                        desc: `Push '${c}' onto the stack.`, 
+                        vars: { c: c, top: '-' },
+                        highlight: [i],
+                        action: 'push'
+                    });
+                } else {
+                    // It's a closing bracket
+                    steps.push({ 
+                        line: 17, 
+                        stack: [...stack], 
+                        index: i, 
+                        desc: `'${c}' is a closing bracket. Go to else block.`, 
+                        vars: { c: c, top: '-' },
+                        highlight: [i]
+                    });
+
+                    // Check empty
+                    steps.push({ 
+                        line: 20, 
+                        stack: [...stack], 
+                        index: i, 
+                        desc: `Check if stack is empty.`, 
+                        vars: { c: c, top: '-' },
+                        highlight: [i]
+                    });
+
+                    if (stack.length === 0) {
+                        steps.push({ 
+                            line: 21, 
+                            stack: [...stack], 
+                            index: i, 
+                            desc: `Error: Stack is empty but found closing bracket '${c}'. Invalid.`, 
+                            vars: { c: c, top: '-' },
+                            highlight: [i],
+                            status: 'fail'
+                        });
+                        return steps;
+                    }
+
+                    // Pop
+                    const top = stack.pop();
+                    steps.push({ 
+                        line: 25, 
+                        stack: [...stack], 
+                        index: i, 
+                        desc: `Pop top element '${top}' from stack.`, 
+                        vars: { c: c, top: top },
+                        highlight: [i],
+                        action: 'pop'
+                    });
+
+                    // Check 1
+                    steps.push({ 
+                        line: 29, 
+                        stack: [...stack], 
+                        index: i, 
+                        desc: `Check: Does '${top}' match '${c}'?`, 
+                        vars: { c: c, top: top },
+                        highlight: [i]
+                    });
+                    if (c === ')' && top !== '(') {
+                        steps.push({ line: 30, stack: [...stack], index: i, desc: `Mismatch: '${top}' != '('. Return false.`, vars: { c, top }, highlight: [i], status: 'fail' });
+                        return steps;
+                    }
+
+                    // Check 2
+                    steps.push({ 
+                        line: 32, 
+                        stack: [...stack], 
+                        index: i, 
+                        desc: `Check: Does '${top}' match '${c}'?`, 
+                        vars: { c: c, top: top },
+                        highlight: [i]
+                    });
+                    if (c === '}' && top !== '{') {
+                        steps.push({ line: 33, stack: [...stack], index: i, desc: `Mismatch: '${top}' != '{'. Return false.`, vars: { c, top }, highlight: [i], status: 'fail' });
+                        return steps;
+                    }
+
+                    // Check 3
+                    steps.push({ 
+                        line: 35, 
+                        stack: [...stack], 
+                        index: i, 
+                        desc: `Check: Does '${top}' match '${c}'?`, 
+                        vars: { c: c, top: top },
+                        highlight: [i]
+                    });
+                    if (c === ']' && top !== '[') {
+                        steps.push({ line: 36, stack: [...stack], index: i, desc: `Mismatch: '${top}' != '['. Return false.`, vars: { c, top }, highlight: [i], status: 'fail' });
+                        return steps;
+                    }
+                    
+                    steps.push({ 
+                        line: 37, // End of else
+                        stack: [...stack], 
+                        index: i, 
+                        desc: `Match found. '${top}' pairs with '${c}'. Continue.`, 
+                        vars: { c: c, top: top },
+                        highlight: [i],
+                        status: 'success-temp'
+                    });
+                }
+            }
+
+            // Final check
+            steps.push({ 
+                line: 43, 
+                stack: [...stack], 
+                index: s.length, 
+                desc: `Loop finished. Check if stack is empty.`, 
+                vars: { c: '-', top: '-' },
+                highlight: []
+            });
+
+            if (stack.length === 0) {
+                steps.push({ 
+                    line: 43, 
+                    stack: [...stack], 
+                    index: s.length, 
+                    desc: `Stack is empty. String is Valid!`, 
+                    vars: { c: '-', top: '-' },
+                    highlight: [],
+                    status: 'success'
+                });
+            } else {
+                steps.push({ 
+                    line: 43, 
+                    stack: [...stack], 
+                    index: s.length, 
+                    desc: `Stack is not empty (${stack.join(',')}). Invalid.`, 
+                    vars: { c: '-', top: '-' },
+                    highlight: [],
+                    status: 'fail'
+                });
+            }
+
+            return steps;
+        }
+
+        function initVisualizer() {
+            const input = document.getElementById('inputString').value;
+            // Basic validation
+            if (!input) return;
+            
+            state.input = input;
+            state.steps = generateSteps(input);
+            state.currentStep = 0;
+            
+            // Reset UI
+            renderString(input);
+            updateUI();
+        }
+
+        function renderString(str) {
+            const container = document.getElementById('stringContainer');
+            container.innerHTML = str.split('').map((char, idx) => 
+                `<div id="char-${idx}" class="char-box w-10 h-10 flex items-center justify-center bg-slate-800 border-2 border-slate-600 rounded text-lg font-mono font-bold">${char}</div>`
+            ).join('');
+        }
+
+        function updateUI() {
+            const step = state.steps[state.currentStep];
+            if (!step) return;
+
+            // 1. Highlight Code Line
+            document.querySelectorAll('.active-line').forEach(el => el.classList.remove('active-line'));
+            const lineEl = document.getElementById(`line-${step.line}`);
+            if (lineEl) {
+                lineEl.classList.add('active-line');
+                
+                // Smart scroll: keep active line in view
+                // We access the wrapper or container
+                const container = document.getElementById('codeContainer');
+                const lineTop = lineEl.offsetTop;
+                const containerHeight = container.clientHeight;
+                const scrollTop = container.scrollTop;
+                
+                // If line is out of view, scroll
+                if (lineTop < scrollTop || lineTop > scrollTop + containerHeight - 50) {
+                     lineEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+
+            // 2. Render Stack
+            const stackContainer = document.getElementById('stackContainer');
+            // We can't just set innerHTML because we want animations.
+            // But for simplicity in "Plain JS" without a diffing library, we will fully redraw 
+            // BUT add classes to new/removed items based on step.action.
+            // To do this simply: clear and rebuild, adding special class to top if pushed.
+            
+            stackContainer.innerHTML = '';
+            step.stack.forEach((val, idx) => {
+                const div = document.createElement('div');
+                div.className = 'w-full h-10 bg-indigo-600 rounded flex items-center justify-center text-white font-mono font-bold stack-item shadow-lg border border-indigo-400';
+                div.textContent = val;
+                
+                // If this step was a PUSH and this is the top item
+                if (step.action === 'push' && idx === step.stack.length - 1) {
+                     // The CSS animation 'slideIn' runs automatically
+                }
+                
+                stackContainer.appendChild(div);
+            });
+            
+            // 3. Highlight String Index
+            document.querySelectorAll('.char-active').forEach(el => el.classList.remove('char-active'));
+            if (step.index >= 0 && step.index < state.input.length) {
+                const charEl = document.getElementById(`char-${step.index}`);
+                if (charEl) charEl.classList.add('char-active');
+            }
+
+            // 4. Update Variables
+            document.getElementById('varC').textContent = step.vars.c || '-';
+            document.getElementById('varTop').textContent = step.vars.top || '-';
+            
+            // 5. Update Status Text
+            const statusEl = document.getElementById('statusText');
+            statusEl.textContent = step.desc;
+            
+            // Color status based on state
+            statusEl.className = "text-sm font-medium transition-colors duration-300 " + 
+                (step.status === 'fail' ? 'text-red-400 font-bold text-lg' : 
+                 step.status === 'success' ? 'text-green-400 font-bold text-lg' : 
+                 step.status === 'success-temp' ? 'text-green-300' : 'text-slate-300');
+
+        }
+
+        // --- Controls ---
+        function nextStep() {
+            if (state.currentStep < state.steps.length - 1) {
+                state.currentStep++;
+                updateUI();
+            } else {
+                pause();
+            }
+        }
+
+        function prevStep() {
+            if (state.currentStep > 0) {
+                state.currentStep--;
+                updateUI();
+            }
+        }
+
+        function reset() {
+            state.currentStep = 0;
+            updateUI();
+        }
+
+        function togglePlay() {
+            if (state.isPlaying) {
+                pause();
+            } else {
+                play();
+            }
+        }
+
+        function play() {
+            state.isPlaying = true;
+            document.getElementById('iconPlay').classList.add('hidden');
+            document.getElementById('iconPause').classList.remove('hidden');
+            
+            // If finished, restart
+            if (state.currentStep === state.steps.length - 1) {
+                state.currentStep = 0;
+            }
+
+            const stepLoop = () => {
+                if (!state.isPlaying) return;
+                
+                if (state.currentStep < state.steps.length - 1) {
+                    nextStep();
+                    state.timer = setTimeout(stepLoop, state.speed);
+                } else {
+                    pause();
+                }
+            };
+            
+            stepLoop();
+        }
+
+        function pause() {
+            state.isPlaying = false;
+            document.getElementById('iconPlay').classList.remove('hidden');
+            document.getElementById('iconPause').classList.add('hidden');
+            if (state.timer) clearTimeout(state.timer);
+        }
+
+    </script>
+</body>
+</html>
