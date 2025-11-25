@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeetCode 209: Minimum Size Subarray Sum - Simplified Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0; /* Slate 200 */
+        }
+        pre, code {
+            font-family: 'Fira Code', monospace;
+        }
+        .code-line {
+            padding: 2px 1rem;
+            border-left: 4px solid transparent;
+            opacity: 0.6;
+            transition: all 0.2s;
+        }
+        .code-line.active {
+            background-color: #1e293b;
+            border-left-color: #60a5fa; /* Blue 400 */
+            opacity: 1;
+            color: #ffffff;
+            font-weight: 500;
+        }
+        
+        /* The Sliding Window Overlay */
+        .window-overlay {
+            position: absolute;
+            top: -8px;
+            bottom: -8px;
+            border-radius: 12px;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            pointer-events: none;
+            z-index: 5;
+            border-width: 3px;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        .window-overlay.expanding {
+            border-color: #f59e0b; /* Amber 500 */
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+        }
+        .window-overlay.valid {
+            border-color: #22c55e; /* Green 500 */
+            background-color: rgba(34, 197, 94, 0.1);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+        }
+
+        .array-item {
+            transition: transform 0.3s ease;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden bg-slate-900 text-slate-200">
+
+    <!-- Header -->
+    <header class="bg-slate-800/50 border-b border-slate-700 p-4 flex justify-between items-center backdrop-blur-sm z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-white shadow-lg">SW</div>
+            <div>
+                <h1 class="font-bold text-white leading-tight">Sliding Window Visualizer</h1>
+                <div class="text-xs text-slate-400">LeetCode 209: Min SubArray Len</div>
+            </div>
+        </div>
+        
+        <a href="https://importsource.github.io/leetmotion/" target="_blank" class="text-xs font-medium text-slate-400 hover:text-white flex items-center gap-2 transition-colors px-3 py-1.5 rounded-full hover:bg-slate-700">
+            <span>LeetMotion Home</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+        </a>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        
+        <!-- Left Panel: Visualization -->
+        <div class="flex-1 flex flex-col relative min-w-0">
+            
+            <!-- Config Bar -->
+            <div class="p-4 bg-slate-800/30 border-b border-slate-700 flex flex-wrap gap-4 items-center justify-center z-10">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-semibold text-slate-500 uppercase">Array</span>
+                    <input type="text" id="arrayInput" value="2,3,1,2,4,3" class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-center w-48 font-mono focus:border-indigo-500 focus:outline-none transition-colors">
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-semibold text-slate-500 uppercase">Target</span>
+                    <input type="number" id="targetInput" value="7" class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-center w-16 font-mono focus:border-indigo-500 focus:outline-none transition-colors">
+                </div>
+                <button id="resetBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded text-xs font-bold uppercase tracking-wide transition-all shadow-lg shadow-indigo-500/20">
+                    Load
+                </button>
+            </div>
+
+            <!-- Visual Stage -->
+            <div class="flex-1 flex flex-col items-center justify-center p-6 relative bg-slate-900/50">
+                
+                <!-- Explanation Card -->
+                <div class="absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-xl text-center z-10 px-4">
+                    <h2 id="stepTitle" class="text-lg font-bold text-white mb-1">Ready to Start</h2>
+                    <p id="stepDesc" class="text-slate-400 text-sm leading-relaxed">
+                        Enter numbers and a target sum, then press Play to see how the sliding window finds the smallest subarray.
+                    </p>
+                </div>
+
+                <!-- Visualization Area -->
+                <div class="w-full max-w-5xl overflow-x-auto py-20 px-4 flex justify-center min-h-[300px] items-center">
+                    <div class="relative flex gap-4 items-center" id="arrayContainer">
+                        <!-- Array Items Generated Here -->
+                        
+                        <!-- The Sliding Window Overlay -->
+                        <div id="windowOverlay" class="window-overlay hidden">
+                            <!-- Label inside the window -->
+                            <div class="absolute -top-10 left-0 w-full text-center">
+                                <span class="text-xs font-bold bg-slate-800 px-2 py-1 rounded border border-slate-600 shadow-xl" id="windowSumLabel">Sum: 0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Dashboard -->
+                <div class="flex gap-4 sm:gap-12 mb-8">
+                    <div class="flex flex-col items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700 min-w-[100px]">
+                        <span class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Target</span>
+                        <span id="displayTarget" class="text-2xl font-bold text-white font-mono">7</span>
+                    </div>
+                    
+                    <div class="flex flex-col items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700 min-w-[100px]">
+                        <span class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Current Sum</span>
+                        <span id="displaySum" class="text-2xl font-bold text-yellow-400 font-mono transition-all">0</span>
+                    </div>
+
+                    <div class="flex flex-col items-center p-3 bg-slate-800/50 rounded-xl border border-slate-700 min-w-[100px]">
+                        <span class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Best Length</span>
+                        <span id="displayMinLen" class="text-2xl font-bold text-green-400 font-mono transition-all">∞</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Controls -->
+            <div class="bg-slate-800 border-t border-slate-700 p-4">
+                <div class="max-w-3xl mx-auto w-full flex flex-col gap-4">
+                    <!-- Progress -->
+                    <div class="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden cursor-pointer relative group">
+                        <div id="progressFill" class="h-full bg-indigo-500 w-0 transition-all duration-200"></div>
+                        <input type="range" id="progressBar" min="0" max="100" value="0" class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer">
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] uppercase font-bold text-slate-500">Speed</span>
+                            <div class="flex bg-slate-700 rounded p-0.5">
+                                <button onclick="setSpeed(1)" class="speed-btn px-2 py-1 text-xs rounded hover:bg-slate-600 text-slate-300 transition-colors" data-speed="1">1x</button>
+                                <button onclick="setSpeed(2)" class="speed-btn px-2 py-1 text-xs rounded hover:bg-slate-600 text-slate-300 bg-slate-600 text-white font-bold" data-speed="2">2x</button>
+                                <button onclick="setSpeed(4)" class="speed-btn px-2 py-1 text-xs rounded hover:bg-slate-600 text-slate-300" data-speed="4">4x</button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-4">
+                            <button id="prevBtn" class="p-2 rounded-full hover:bg-slate-700 text-slate-300 transition-colors">
+                                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                            </button>
+                            
+                            <button id="playBtn" class="w-14 h-14 bg-indigo-600 hover:bg-indigo-500 rounded-full flex items-center justify-center text-white shadow-xl shadow-indigo-900/30 transition-transform transform hover:scale-105 active:scale-95">
+                                <svg id="playIcon" class="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg>
+                                <svg id="pauseIcon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                            </button>
+                            
+                            <button id="nextBtn" class="p-2 rounded-full hover:bg-slate-700 text-slate-300 transition-colors">
+                                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                        </div>
+                        
+                        <div class="w-24"></div> <!-- Spacer for balance -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Code (Collapsible on mobile) -->
+        <div class="hidden lg:flex flex-col w-96 bg-[#1e1e1e] border-l border-slate-800 shadow-2xl z-10">
+            <div class="p-3 bg-[#252526] text-xs text-slate-400 uppercase tracking-widest border-b border-[#333] font-semibold sticky top-0">
+                Java Solution
+            </div>
+            <div id="codeBlock" class="flex-1 overflow-auto py-4 text-xs xl:text-sm text-gray-300 font-mono leading-relaxed">
+                <!-- Code injected here -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- Code Display ---
+        const codeLines = [
+            "public int minSubArrayLen(int target, int[] nums) {",
+            "    int left = 0;",
+            "    int sum = 0;",
+            "    int minLen = Integer.MAX_VALUE;",
+            "",
+            "    for (int right = 0; right < nums.length; right++) {",
+            "        sum += nums[right];",
+            "",
+            "        while (sum >= target) {",
+            "            minLen = Math.min(minLen, right - left + 1);",
+            "            sum -= nums[left];",
+            "            left++;",
+            "        }",
+            "    }",
+            "",
+            "    return minLen == Integer.MAX_VALUE ? 0 : minLen;",
+            "}"
+        ];
+
+        // --- Trace & State Logic ---
+        let trace = [];
+        let currentStep = 0;
+        let isPlaying = false;
+        let timer = null;
+        let speed = 1000;
+
+        function generateTrace(nums, target) {
+            const steps = [];
+            let left = 0;
+            let sum = 0;
+            let minLen = Number.MAX_SAFE_INTEGER;
+            
+            // Helper to add steps
+            const addStep = (line, title, desc, type, r, l_idx, s, m) => {
+                steps.push({
+                    lineIdx: line,
+                    title: title,
+                    desc: desc,
+                    type: type, // 'expanding' | 'shrinking' | 'found' | 'init'
+                    right: r,
+                    left: l_idx,
+                    sum: s,
+                    minLen: m
+                });
+            };
+
+            addStep(1, "Initialize", "Starting with pointers at the beginning. No window yet.", "init", -1, 0, 0, minLen);
+
+            for (let right = 0; right < nums.length; right++) {
+                // Prepare to add
+                addStep(5, "Expand Window", `Moving right pointer to include number ${nums[right]}.`, "expanding", right, left, sum, minLen);
+                
+                sum += nums[right];
+                addStep(6, "Update Sum", `Added ${nums[right]} to total. Current Sum: ${sum}.`, "expanding", right, left, sum, minLen);
+
+                // Check condition
+                if (sum < target) {
+                    addStep(8, "Check Target", `Sum (${sum}) is less than Target (${target}). Need more numbers.`, "expanding", right, left, sum, minLen);
+                }
+
+                while (sum >= target) {
+                    addStep(8, "Target Reached!", `Sum (${sum}) >= Target (${target}). Valid window found!`, "valid", right, left, sum, minLen);
+                    
+                    let currentLen = right - left + 1;
+                    let newMin = Math.min(minLen, currentLen);
+                    let improved = newMin < minLen;
+                    minLen = newMin;
+
+                    addStep(9, improved ? "New Best Found" : "Check Length", 
+                            improved ? `Length ${currentLen} is a new minimum record!` : `Length ${currentLen} is not smaller than current best ${minLen}.`, 
+                            "valid", right, left, sum, minLen);
+
+                    sum -= nums[left];
+                    addStep(10, "Shrink Window", `Try to make it smaller. Remove left number (${nums[left]}). New Sum: ${sum}.`, "shrinking", right, left, sum, minLen);
+
+                    left++;
+                    addStep(11, "Shift Left", "Moved left pointer forward.", "shrinking", right, left, sum, minLen);
+                }
+            }
+            
+            const result = minLen === Number.MAX_SAFE_INTEGER ? 0 : minLen;
+            addStep(15, "Finished", `End of array. Result: ${result}`, "init", nums.length - 1, left, sum, minLen === Number.MAX_SAFE_INTEGER ? "∞" : minLen);
+            
+            return steps;
+        }
+
+        // --- Render Functions ---
+        
+        function renderCode() {
+            const el = document.getElementById('codeBlock');
+            el.innerHTML = codeLines.map((line, i) => 
+                `<div id="line-${i}" class="code-line flex"><span class="w-6 text-slate-600 select-none mr-2 text-right">${i+1}</span><span>${escapeHtml(line)}</span></div>`
+            ).join('');
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function init() {
+            renderCode();
+            loadScenario();
+            
+            // Listeners
+            document.getElementById('resetBtn').addEventListener('click', loadScenario);
+            document.getElementById('playBtn').addEventListener('click', togglePlay);
+            document.getElementById('nextBtn').addEventListener('click', () => { pause(); stepForward(); });
+            document.getElementById('prevBtn').addEventListener('click', () => { pause(); stepBackward(); });
+            
+            document.getElementById('progressBar').addEventListener('input', (e) => {
+                pause();
+                goToStep(parseInt(e.target.value));
+            });
+            
+            window.addEventListener('resize', () => {
+                // Re-render current step to fix overlay positions
+                renderStep(currentStep);
+            });
+        }
+
+        function loadScenario() {
+            pause();
+            const arrStr = document.getElementById('arrayInput').value;
+            const target = parseInt(document.getElementById('targetInput').value);
+            const nums = arrStr.split(',').map(x => parseInt(x.trim())).filter(n => !isNaN(n));
+            
+            if (nums.length === 0) return;
+
+            // Build UI
+            const container = document.getElementById('arrayContainer');
+            // Remove old boxes but keep overlay
+            const overlay = document.getElementById('windowOverlay');
+            container.innerHTML = '';
+            container.appendChild(overlay);
+
+            nums.forEach((n, i) => {
+                const box = document.createElement('div');
+                box.id = `box-${i}`;
+                box.className = 'array-item w-14 h-14 bg-slate-800 rounded-lg flex items-center justify-center text-xl font-bold border-2 border-slate-700 z-10 relative';
+                box.textContent = n;
+                container.appendChild(box);
+            });
+
+            document.getElementById('displayTarget').textContent = target;
+
+            // Generate Trace
+            trace = generateTrace(nums, target);
+            document.getElementById('progressBar').max = trace.length - 1;
+            
+            // Reset state
+            goToStep(0);
+        }
+
+        function goToStep(idx) {
+            if (idx < 0) idx = 0;
+            if (idx >= trace.length) idx = trace.length - 1;
+            currentStep = idx;
+            renderStep(idx);
+        }
+
+        function stepForward() {
+            if (currentStep < trace.length - 1) goToStep(currentStep + 1);
+            else pause();
+        }
+
+        function stepBackward() {
+            goToStep(currentStep - 1);
+        }
+
+        function renderStep(idx) {
+            const s = trace[idx];
+            
+            // 1. Text Info
+            document.getElementById('stepTitle').textContent = s.title;
+            document.getElementById('stepDesc').textContent = s.desc;
+            document.getElementById('displaySum').textContent = s.sum;
+            document.getElementById('displayMinLen').textContent = s.minLen === Number.MAX_SAFE_INTEGER ? "∞" : s.minLen;
+
+            // 2. Code Highlight
+            document.querySelectorAll('.code-line').forEach(el => el.classList.remove('active'));
+            const codeEl = document.getElementById(`line-${s.lineIdx}`);
+            if (codeEl) {
+                codeEl.classList.add('active');
+                codeEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+
+            // 3. Progress Bar
+            document.getElementById('progressBar').value = idx;
+            const percent = (idx / (trace.length - 1)) * 100;
+            document.getElementById('progressFill').style.width = `${percent}%`;
+
+            // 4. Visual Overlay Logic
+            const overlay = document.getElementById('windowOverlay');
+            const label = document.getElementById('windowSumLabel');
+            
+            // Reset all box styles
+            document.querySelectorAll('.array-item').forEach(b => {
+                b.classList.remove('text-slate-500', 'opacity-50');
+                b.style.transform = 'scale(1)';
+            });
+
+            if (s.right === -1 && s.left === 0) {
+                // Init state
+                overlay.classList.add('hidden');
+                return;
+            }
+
+            overlay.classList.remove('hidden');
+            
+            // Get positions
+            const leftBox = document.getElementById(`box-${s.left}`);
+            const rightBox = document.getElementById(`box-${s.right}`);
+            
+            if (leftBox && rightBox && s.left <= s.right) {
+                // Calculate dimensions relative to container
+                const containerRect = document.getElementById('arrayContainer').getBoundingClientRect();
+                const leftRect = leftBox.getBoundingClientRect();
+                const rightRect = rightBox.getBoundingClientRect();
+
+                // Position overlay
+                const relativeLeft = leftRect.left - containerRect.left;
+                const width = (rightRect.right - leftRect.left);
+
+                overlay.style.left = `${relativeLeft - 4}px`; // -4 padding
+                overlay.style.width = `${width + 8}px`; // +8 padding
+                
+                label.textContent = `Sum: ${s.sum}`;
+                
+                // Color coding
+                overlay.className = `window-overlay block ${s.type === 'valid' ? 'valid' : 'expanding'}`;
+
+                // Fade out elements outside window
+                // document.querySelectorAll('.array-item').forEach((box, i) => {
+                //     if (i < s.left || i > s.right) {
+                //         box.classList.add('text-slate-500');
+                //     }
+                // });
+
+            } else {
+                // Invalid window (e.g., left > right temporarily) or out of bounds
+                overlay.classList.add('hidden');
+            }
+        }
+
+        // --- Playback ---
+        function togglePlay() {
+            if (isPlaying) pause();
+            else play();
+        }
+
+        function play() {
+            isPlaying = true;
+            document.getElementById('playIcon').classList.add('hidden');
+            document.getElementById('pauseIcon').classList.remove('hidden');
+            
+            if (currentStep === trace.length - 1) currentStep = 0;
+
+            timer = setInterval(() => {
+                if (currentStep < trace.length - 1) {
+                    stepForward();
+                } else {
+                    pause();
+                }
+            }, speed);
+        }
+
+        function pause() {
+            isPlaying = false;
+            document.getElementById('playIcon').classList.remove('hidden');
+            document.getElementById('pauseIcon').classList.add('hidden');
+            clearInterval(timer);
+        }
+
+        function setSpeed(factor) {
+            document.querySelectorAll('.speed-btn').forEach(b => {
+                b.classList.remove('bg-slate-600', 'text-white', 'font-bold');
+                if (parseInt(b.dataset.speed) === factor) b.classList.add('bg-slate-600', 'text-white', 'font-bold');
+            });
+            speed = 1000 / factor; // Base 1000ms
+            if (isPlaying) {
+                pause();
+                play();
+            }
+        }
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>
