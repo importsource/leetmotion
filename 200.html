@@ -1,0 +1,464 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeetCode 200: Number of Islands - Visualization</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        .code-line {
+            display: block;
+            padding: 0 1rem;
+            min-height: 1.5rem;
+            border-left: 3px solid transparent;
+        }
+        .code-line.active {
+            background-color: rgba(59, 130, 246, 0.2); /* blue-500 with opacity */
+            border-left-color: #3b82f6;
+        }
+        /* Custom Grid styles */
+        .grid-cell {
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .grid-cell.land { background-color: #10b981; } /* emerald-500 */
+        .grid-cell.water { background-color: #334155; } /* slate-700 */
+        .grid-cell.visited { background-color: #064e3b; } /* emerald-900 */
+        
+        .grid-cell.scanning {
+            box-shadow: inset 0 0 0 4px #facc15; /* yellow-400 */
+            z-index: 10;
+        }
+        
+        .grid-cell.sinking {
+            background-color: #f97316; /* orange-500 */
+            transform: scale(0.9);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen flex flex-col overflow-hidden">
+    
+    <!-- Header -->
+    <header class="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6 shadow-md shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white">LC</div>
+            <h1 class="text-xl font-bold tracking-tight">Number of Islands <span class="text-gray-500 text-sm font-normal ml-2">#200 Depth First Search</span></h1>
+        </div>
+        <a href="https://importsource.github.io/leetmotion/" target="_blank" class="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-white transition-colors bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-full">
+            <span>leetmotion</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+        </a>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Left Panel: Visualization -->
+        <section class="flex-1 flex flex-col min-w-0 border-r border-gray-700 bg-gray-900/50">
+            <!-- Controls Bar -->
+            <div class="p-4 border-b border-gray-700 bg-gray-800 flex flex-wrap items-center gap-4 justify-between shrink-0">
+                <div class="flex items-center gap-2">
+                    <button id="btn-generate" class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-medium transition">Random Grid</button>
+                    <button id="btn-reset" class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-medium transition" disabled>Reset</button>
+                </div>
+                
+                <div class="flex items-center gap-4 flex-1 justify-center">
+                    <button id="btn-start" class="px-8 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold shadow-lg shadow-blue-900/50 transform active:scale-95 transition flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Start
+                    </button>
+                    <div class="flex flex-col items-center gap-1 w-32">
+                        <label for="speed" class="text-xs text-gray-400 uppercase font-bold tracking-wider">Speed</label>
+                        <input type="range" id="speed" min="10" max="1000" value="200" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-6">
+                    <div class="text-right">
+                        <div class="text-xs text-gray-400 uppercase">Status</div>
+                        <div id="status" class="text-sm font-bold text-blue-400">Ready</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-gray-400 uppercase">Count</div>
+                        <div id="count" class="text-2xl font-mono font-bold text-green-400 leading-none">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grid Viewport -->
+            <div class="flex-1 overflow-auto p-8 flex items-center justify-center bg-gray-900 relative">
+                <!-- Legend -->
+                <div class="absolute top-4 left-4 flex flex-col gap-2 bg-gray-800/80 p-3 rounded-lg backdrop-blur-sm border border-gray-700 text-xs shadow-lg z-20">
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-[#334155] rounded"></div> <span class="text-gray-300">Water ('0')</span></div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-[#10b981] rounded"></div> <span class="text-gray-300">Land ('1')</span></div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-[#064e3b] rounded"></div> <span class="text-gray-300">Visited (Sunk)</span></div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-[#f97316] rounded"></div> <span class="text-gray-300">Processing</span></div>
+                </div>
+
+                <div id="grid" class="grid gap-1 p-1 bg-gray-800 rounded shadow-2xl border border-gray-700">
+                    <!-- Grid generated by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Panel: Code -->
+        <section class="w-[500px] bg-[#1e1e1e] flex flex-col border-l border-gray-700 shadow-2xl shrink-0">
+            <div class="h-10 bg-[#252526] flex items-center px-4 border-b border-[#333] text-xs text-gray-400 select-none">
+                <span class="font-bold text-gray-200">Solution.java</span>
+            </div>
+            <div class="flex-1 overflow-y-auto font-mono text-sm leading-6 py-4" id="code-container">
+                <!-- Code Lines Injected Here -->
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- Configuration & State ---
+        const ROWS = 12;
+        const COLS = 16;
+        let gridData = [];
+        let sunkCells = new Set();
+        let isRunning = false;
+        let abortController = null;
+        let islandCount = 0;
+        let animationSpeed = 200; // ms
+
+        // --- DOM Elements ---
+        const gridEl = document.getElementById('grid');
+        const codeEl = document.getElementById('code-container');
+        const btnStart = document.getElementById('btn-start');
+        const btnReset = document.getElementById('btn-reset');
+        const btnGenerate = document.getElementById('btn-generate');
+        const statusEl = document.getElementById('status');
+        const countEl = document.getElementById('count');
+        const speedInput = document.getElementById('speed');
+
+        // --- Code Definition ---
+        const codeLines = [
+            { text: "class Solution {", indent: 0 },
+            { text: "public int numIslands(char[][] grid) {", indent: 2 },
+            { text: "if (grid == null || grid.length == 0) {", indent: 4 },
+            { text: "return 0;", indent: 6 },
+            { text: "}", indent: 4 },
+            { text: "", indent: 0 },
+            { text: "int count = 0;", indent: 4 }, // Line 6
+            { text: "for (int i = 0; i < grid.length; i++) {", indent: 4 }, // Line 7
+            { text: "for (int j = 0; j < grid[0].length; j++) {", indent: 6 }, // Line 8
+            { text: "if (grid[i][j] == '1') {", indent: 8 }, // Line 9
+            { text: "count++;", indent: 10 }, // Line 10
+            { text: "dfs(grid, i, j);", indent: 10 }, // Line 11
+            { text: "}", indent: 8 },
+            { text: "}", indent: 6 },
+            { text: "}", indent: 4 },
+            { text: "return count;", indent: 4 },
+            { text: "}", indent: 2 },
+            { text: "", indent: 0 },
+            { text: "private void dfs(char[][] grid, int i, int j) {", indent: 2 }, // Line 18
+            { text: "if (i < 0 || i >= grid.length || j < 0 || j >= grid[0].length) {", indent: 4 }, // Line 19
+            { text: "return;", indent: 6 }, // Line 20
+            { text: "}", indent: 4 },
+            { text: "if (grid[i][j] == '0') {", indent: 4 }, // Line 22
+            { text: "return;", indent: 6 }, // Line 23
+            { text: "}", indent: 4 },
+            { text: "", indent: 0 },
+            { text: "grid[i][j] = '0';", indent: 4 }, // Line 26
+            { text: "dfs(grid, i + 1, j);", indent: 4 }, // Line 27
+            { text: "dfs(grid, i - 1, j);", indent: 4 }, // Line 28
+            { text: "dfs(grid, i, j + 1);", indent: 4 }, // Line 29
+            { text: "dfs(grid, i, j - 1);", indent: 4 }, // Line 30
+            { text: "}", indent: 2 },
+            { text: "}", indent: 0 }
+        ];
+
+        // --- Initialization ---
+        function init() {
+            renderCode();
+            generateGrid();
+            setupEventListeners();
+        }
+
+        function renderCode() {
+            codeEl.innerHTML = codeLines.map((line, index) => {
+                const indent = '&nbsp;'.repeat(line.indent * 2);
+                return `<div class="code-line text-gray-300" id="line-${index}">
+                    <span class="inline-block w-6 text-gray-600 select-none text-right mr-3 text-xs">${index + 1}</span><span class="font-mono">${indent}${escapeHtml(line.text)}</span>
+                </div>`;
+            }).join('');
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function generateGrid() {
+            if (isRunning) return;
+            
+            gridEl.style.gridTemplateColumns = `repeat(${COLS}, minmax(0, 1fr))`;
+            gridEl.innerHTML = '';
+            gridData = [];
+            sunkCells.clear();
+
+            for (let i = 0; i < ROWS; i++) {
+                const row = [];
+                for (let j = 0; j < COLS; j++) {
+                    const isLand = Math.random() > 0.70; // 30% land chance
+                    const val = isLand ? '1' : '0';
+                    row.push(val);
+                    
+                    const cell = document.createElement('div');
+                    cell.id = `cell-${i}-${j}`;
+                    cell.className = `grid-cell w-8 h-8 rounded-sm ${val === '1' ? 'land' : 'water'}`;
+                    gridEl.appendChild(cell);
+                }
+                gridData.push(row);
+            }
+            
+            resetStats();
+        }
+
+        function resetStats() {
+            islandCount = 0;
+            countEl.textContent = '0';
+            statusEl.textContent = 'Ready';
+            clearHighlights();
+            sunkCells.clear();
+            
+            // Restore visual state based on gridData which might have been modified in previous run.
+            // But since 'Reset' usually means 'Restart Fresh' or 'Reset View', 
+            // the user clicked "Reset" button which calls generateGrid() typically.
+            // If we just want to reset visualization on same grid, we need a copy of original grid.
+            // For this implementation, clicking Reset generates a new grid (or regenerates).
+            // But if we want to just clear the "run", we would need to reload the data. 
+            // Given the logic, let's assume Generate Grid does the heavy lifting.
+        }
+
+        function setupEventListeners() {
+            btnGenerate.addEventListener('click', generateGrid);
+            
+            btnStart.addEventListener('click', () => {
+                if (isRunning) return;
+                startVisualization();
+            });
+
+            btnReset.addEventListener('click', () => {
+                if (isRunning && abortController) {
+                    abortController.abort();
+                }
+                // We re-generate the grid to ensure fresh state since the algorithm mutates the data
+                generateGrid();
+                isRunning = false;
+                toggleControls(true);
+            });
+
+            speedInput.addEventListener('input', (e) => {
+                // Slider Right (High Value) -> Fast Speed (Low Delay)
+                // Slider Left (Low Value) -> Slow Speed (High Delay)
+                // Range: 10 to 1000.
+                // Delay = 1010 - Value
+                animationSpeed = 1010 - parseInt(e.target.value);
+            });
+            animationSpeed = 1010 - parseInt(speedInput.value);
+        }
+
+        function toggleControls(enabled) {
+            btnStart.disabled = !enabled;
+            btnGenerate.disabled = !enabled;
+            // btnReset is always enabled to allow stopping
+            
+            if (!enabled) {
+                btnStart.classList.add('opacity-50', 'cursor-not-allowed');
+                btnStart.classList.remove('active:scale-95');
+                btnGenerate.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                btnStart.classList.remove('opacity-50', 'cursor-not-allowed');
+                btnStart.classList.add('active:scale-95');
+                btnGenerate.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        // --- Visualization Logic ---
+        
+        async function startVisualization() {
+            isRunning = true;
+            toggleControls(false);
+            statusEl.textContent = 'Running...';
+            abortController = new AbortController();
+            const signal = abortController.signal;
+
+            try {
+                await runSolution(signal);
+                statusEl.textContent = 'Finished!';
+            } catch (err) {
+                if (err === 'Aborted') {
+                    statusEl.textContent = 'Reset';
+                } else {
+                    console.error(err);
+                    statusEl.textContent = 'Error';
+                }
+            } finally {
+                isRunning = false;
+                toggleControls(true);
+            }
+        }
+
+        function delay() {
+            return new Promise((resolve, reject) => {
+                if (abortController && abortController.signal.aborted) {
+                    reject('Aborted');
+                }
+                setTimeout(() => {
+                    if (abortController && abortController.signal.aborted) {
+                        reject('Aborted');
+                    } else {
+                        resolve();
+                    }
+                }, animationSpeed);
+            });
+        }
+
+        async function highlight(lineIndex) {
+            clearHighlights();
+            const el = document.getElementById(`line-${lineIndex}`);
+            if (el) {
+                el.classList.add('active');
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            await delay();
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.code-line.active').forEach(el => el.classList.remove('active'));
+        }
+
+        function updateCellVisuals(i, j, type, isScanning = false, isSinking = false) {
+            const cell = document.getElementById(`cell-${i}-${j}`);
+            if (!cell) return;
+            
+            cell.classList.remove('scanning', 'sinking');
+            
+            // Reset base classes
+            cell.className = `grid-cell w-8 h-8 rounded-sm`;
+            
+            // Apply Type
+            if (type === '0') cell.classList.add('water');
+            else if (type === '1') cell.classList.add('land');
+            else if (type === '2') cell.classList.add('visited');
+            
+            // Apply states
+            if (isScanning) cell.classList.add('scanning');
+            if (isSinking) cell.classList.add('sinking');
+        }
+
+        async function runSolution(signal) {
+            // Line 6: int count = 0;
+            await highlight(6);
+            islandCount = 0;
+            countEl.textContent = islandCount;
+
+            // Line 7: Outer Loop
+            for (let i = 0; i < ROWS; i++) {
+                if (signal.aborted) throw 'Aborted';
+                await highlight(7);
+                
+                // Line 8: Inner Loop
+                for (let j = 0; j < COLS; j++) {
+                    if (signal.aborted) throw 'Aborted';
+                    await highlight(8);
+                    
+                    // Determine current visual type to maintain 'visited' state during scan
+                    const currentKey = `${i},${j}`;
+                    const currentType = sunkCells.has(currentKey) ? '2' : gridData[i][j];
+
+                    updateCellVisuals(i, j, currentType, true); // Show scanning ring
+                    
+                    // Line 9: if grid[i][j] == '1'
+                    await highlight(9);
+                    
+                    if (gridData[i][j] === '1') {
+                        statusEl.textContent = 'Island Found!';
+                        // Line 10: count++
+                        await highlight(10);
+                        islandCount++;
+                        countEl.textContent = islandCount;
+                        
+                        // Line 11: dfs(grid, i, j)
+                        await highlight(11);
+                        await runDFS(i, j, signal);
+                    } else {
+                         await delay(); // Small delay to see the scan move over water
+                    }
+                    
+                    // Remove scan highlight, restore correct visual state
+                    const finalType = sunkCells.has(currentKey) ? '2' : gridData[i][j];
+                    updateCellVisuals(i, j, finalType, false);
+                }
+            }
+            
+            statusEl.textContent = 'Completed';
+            await highlight(15); // return count
+        }
+
+        async function runDFS(i, j, signal) {
+            if (signal.aborted) throw 'Aborted';
+            
+            // Line 18: Method definition (skip)
+            
+            // Check bounds (Lines 19-21)
+            await highlight(19);
+            const r = ROWS;
+            const c = COLS;
+            
+            if (i < 0 || i >= r || j < 0 || j >= c) {
+                await highlight(20); // return
+                return;
+            }
+            
+            // Line 22: check if 0
+            await highlight(22);
+            if (gridData[i][j] === '0') {
+                 await highlight(23); // return
+                 return;
+            }
+
+            // Line 26: grid[i][j] = '0'
+            await highlight(26);
+            gridData[i][j] = '0'; // Logic update
+            sunkCells.add(`${i},${j}`); // Visual tracker
+            
+            // Visual update: Turn it into 'Sunk/Visited' with sinking animation
+            updateCellVisuals(i, j, '2', false, true);
+            
+            // Line 27: dfs i+1
+            await highlight(27);
+            await runDFS(i + 1, j, signal);
+            
+            // Line 28: dfs i-1
+            await highlight(28);
+            await runDFS(i - 1, j, signal);
+            
+            // Line 29: dfs j+1
+            await highlight(29);
+            await runDFS(i, j + 1, signal);
+            
+            // Line 30: dfs j-1
+            await highlight(30);
+            await runDFS(i, j - 1, signal);
+            
+            // After returning from recursion, ensure it stays visited and remove sinking scale
+            updateCellVisuals(i, j, '2', false, false);
+        }
+
+        // Run Init
+        init();
+
+    </script>
+</body>
+</html>
+    
